@@ -1,0 +1,28 @@
+#ifndef ZENV_CLI_H
+#define ZENV_CLI_H
+
+typedef enum {
+    ALLOW,
+    DENY,
+    HELP,
+    RUN,
+    CD,
+    LIST,
+    HOOK
+} Action;
+
+typedef enum {
+    ZSH,
+    BASH,
+    UNKNOWN,
+} Shell;
+
+typedef struct {
+    Action action;
+    char *text;
+} Params;
+
+Params *parse_params(int argc, const char **argv);
+Shell parse_shell(const char *shell);
+
+#endif
