@@ -54,7 +54,14 @@ static int run(StringList *unsets) {
     }
 
     for (size_t i = 0; i < dot_env.count; ++i) {
-        printf("export %.*s=\"%.*s\"\n", sv_dot_star(dot_env.items[i].key), sv_dot_star(dot_env.items[i].value));
+        String_View value = dot_env.items[i].value;
+        char *value_str;
+        if (value.count > 0 && value.data[0] == '~') {
+            value_str = expand_path_file(strndup(value.data, value.count));
+        } else {
+            value_str = strndup(value.data, value.count);
+        }
+        printf("export %.*s=\"%s\"\n", sv_dot_star(dot_env.items[i].key), value_str);
     }
 
     return 0;
