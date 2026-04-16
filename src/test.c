@@ -25,42 +25,65 @@ static int tests_run = 0;
 static int tests_passed = 0;
 static const char *current_suite = "";
 
-#define ASSERT(expr) do { \
-    tests_run++; \
-    if (expr) { \
-        tests_passed++; \
-    } else { \
-        fprintf(stderr, "  FAIL [%s:%d]: %s\n", __FILE__, __LINE__, #expr); \
-    } \
-} while(0)
+#define ASSERT(expr)                                                            \
+    do                                                                          \
+    {                                                                           \
+        tests_run++;                                                            \
+        if (expr)                                                               \
+        {                                                                       \
+            tests_passed++;                                                     \
+        }                                                                       \
+        else                                                                    \
+        {                                                                       \
+            fprintf(stderr, "  FAIL [%s:%d]: %s\n", __FILE__, __LINE__, #expr); \
+        }                                                                       \
+    } while (0)
 
-#define ASSERT_STR_EQ(a, b) do { \
-    tests_run++; \
-    const char *_a = (a); const char *_b = (b); \
-    if (strcmp(_a, _b) == 0) { \
-        tests_passed++; \
-    } else { \
-        fprintf(stderr, "  FAIL [%s:%d]: expected \"%s\", got \"%s\"\n", \
-                __FILE__, __LINE__, _b, _a); \
-    } \
-} while(0)
+#define ASSERT_STR_EQ(a, b)                                                  \
+    do                                                                       \
+    {                                                                        \
+        tests_run++;                                                         \
+        const char *_a = (a);                                                \
+        const char *_b = (b);                                                \
+        if (strcmp(_a, _b) == 0)                                             \
+        {                                                                    \
+            tests_passed++;                                                  \
+        }                                                                    \
+        else                                                                 \
+        {                                                                    \
+            fprintf(stderr, "  FAIL [%s:%d]: expected \"%s\", got \"%s\"\n", \
+                    __FILE__, __LINE__, _b, _a);                             \
+        }                                                                    \
+    } while (0)
 
-#define ASSERT_SV_EQ(sv, cstr) do { \
-    tests_run++; \
-    String_View _sv = (sv); const char *_cs = (cstr); \
-    if (_sv.count == strlen(_cs) && strncmp(_sv.data, _cs, _sv.count) == 0) { \
-        tests_passed++; \
-    } else { \
-        fprintf(stderr, "  FAIL [%s:%d]: expected \"%s\", got \"%.*s\"\n", \
-                __FILE__, __LINE__, _cs, (int)_sv.count, _sv.data); \
-    } \
-} while(0)
+#define ASSERT_SV_EQ(sv, cstr)                                                  \
+    do                                                                          \
+    {                                                                           \
+        tests_run++;                                                            \
+        String_View _sv = (sv);                                                 \
+        const char *_cs = (cstr);                                               \
+        if (_sv.count == strlen(_cs) && strncmp(_sv.data, _cs, _sv.count) == 0) \
+        {                                                                       \
+            tests_passed++;                                                     \
+        }                                                                       \
+        else                                                                    \
+        {                                                                       \
+            fprintf(stderr, "  FAIL [%s:%d]: expected \"%s\", got \"%.*s\"\n",  \
+                    __FILE__, __LINE__, _cs, (int)_sv.count, _sv.data);         \
+        }                                                                       \
+    } while (0)
 
-#define SUITE(name) do { current_suite = name; printf("  %s\n", name); } while(0)
+#define SUITE(name)             \
+    do                          \
+    {                           \
+        current_suite = name;   \
+        printf("  %s\n", name); \
+    } while (0)
 
 // --- Helpers ---
 
-static char *write_temp_file(const char *content) {
+static char *write_temp_file(const char *content)
+{
     char *path = strdup("/tmp/envwalk_test_XXXXXX");
     int fd = mkstemp(path);
     write(fd, content, strlen(content));
@@ -70,43 +93,52 @@ static char *write_temp_file(const char *content) {
 
 // --- dotenv tests ---
 
-static void test_dotenv_basic(void) {
+static void test_dotenv_basic(void)
+{
     char *path = write_temp_file("KEY=value\n");
     Variables vars = {0};
     ASSERT(parse_dotenv(&vars, path));
     ASSERT(vars.count == 1);
     ASSERT_SV_EQ(vars.items[0].key, "KEY");
     ASSERT_SV_EQ(vars.items[0].value, "value");
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
 }
 
-static void test_dotenv_quoted_value(void) {
+static void test_dotenv_quoted_value(void)
+{
     char *path = write_temp_file("KEY=\"hello world\"\n");
     Variables vars = {0};
     ASSERT(parse_dotenv(&vars, path));
     ASSERT(vars.count == 1);
     ASSERT_SV_EQ(vars.items[0].value, "hello world");
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
 }
 
-static void test_dotenv_comments(void) {
+static void test_dotenv_comments(void)
+{
     char *path = write_temp_file("# hash comment\n// slash comment\nKEY=value\n");
     Variables vars = {0};
     ASSERT(parse_dotenv(&vars, path));
     ASSERT(vars.count == 1);
     ASSERT_SV_EQ(vars.items[0].key, "KEY");
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
 }
 
-static void test_dotenv_empty_lines(void) {
+static void test_dotenv_empty_lines(void)
+{
     char *path = write_temp_file("\nA=1\n\nB=2\n\n");
     Variables vars = {0};
     ASSERT(parse_dotenv(&vars, path));
     ASSERT(vars.count == 2);
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
 }
 
-static void test_dotenv_multiple_keys(void) {
+static void test_dotenv_multiple_keys(void)
+{
     char *path = write_temp_file("A=1\nB=2\nC=3\n");
     Variables vars = {0};
     ASSERT(parse_dotenv(&vars, path));
@@ -114,10 +146,12 @@ static void test_dotenv_multiple_keys(void) {
     ASSERT_SV_EQ(vars.items[0].key, "A");
     ASSERT_SV_EQ(vars.items[1].key, "B");
     ASSERT_SV_EQ(vars.items[2].key, "C");
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
 }
 
-static void test_dotenv_duplicate_keeps_first(void) {
+static void test_dotenv_duplicate_keeps_first(void)
+{
     // nob_log warnings go to stderr — suppress during this test
     int saved = nob_minimal_log_level;
     nob_minimal_log_level = NOB_ERROR;
@@ -126,47 +160,56 @@ static void test_dotenv_duplicate_keeps_first(void) {
     ASSERT(parse_dotenv(&vars, path));
     ASSERT(vars.count == 1);
     ASSERT_SV_EQ(vars.items[0].value, "first");
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
     nob_minimal_log_level = saved;
 }
 
-static void test_dotenv_nonexistent_file(void) {
-    nob_set_log_handler(nob_nullptr_log_handler);
+static void test_dotenv_nonexistent_file(void)
+{
+    nob_set_log_handler(nob_null_log_handler);
     Variables vars = {0};
     ASSERT(!parse_dotenv(&vars, "/tmp/envwalk_no_such_file_xyz"));
     ASSERT(vars.count == 0);
     nob_set_log_handler(nob_default_log_handler);
 }
 
-static void test_dotenv_tilde_value_preserved(void) {
+static void test_dotenv_tilde_value_preserved(void)
+{
     // parse_dotenv stores the raw value; ~ expansion happens in the caller
     char *path = write_temp_file("MYPATH=~/projects\n");
     Variables vars = {0};
     ASSERT(parse_dotenv(&vars, path));
     ASSERT(vars.count == 1);
     ASSERT_SV_EQ(vars.items[0].value, "~/projects");
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
 }
 
-static void test_dotenv_empty_file(void) {
+static void test_dotenv_empty_file(void)
+{
     char *path = write_temp_file("");
     Variables vars = {0};
     ASSERT(parse_dotenv(&vars, path));
     ASSERT(vars.count == 0);
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
 }
 
-static void test_dotenv_no_trailing_newline(void) {
+static void test_dotenv_no_trailing_newline(void)
+{
     char *path = write_temp_file("KEY=value");
     Variables vars = {0};
     ASSERT(parse_dotenv(&vars, path));
     ASSERT(vars.count == 1);
     ASSERT_SV_EQ(vars.items[0].key, "KEY");
     ASSERT_SV_EQ(vars.items[0].value, "value");
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
 }
 
-static void test_dotenv_value_contains_equals(void) {
+static void test_dotenv_value_contains_equals(void)
+{
     // Only the first '=' is the separator; rest goes into the value
     char *path = write_temp_file("KEY=foo=bar=baz\n");
     Variables vars = {0};
@@ -174,22 +217,26 @@ static void test_dotenv_value_contains_equals(void) {
     ASSERT(vars.count == 1);
     ASSERT_SV_EQ(vars.items[0].key, "KEY");
     ASSERT_SV_EQ(vars.items[0].value, "foo=bar=baz");
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
 }
 
-static void test_dotenv_path_recorded(void) {
+static void test_dotenv_path_recorded(void)
+{
     char *path = write_temp_file("KEY=value\n");
     Variables vars = {0};
     ASSERT(parse_dotenv(&vars, path));
     ASSERT(vars.count == 1);
     // kv.path should hold the filepath we passed in
     ASSERT_SV_EQ(vars.items[0].path, path);
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
 }
 
 // --- path tests ---
 
-static void test_get_path_parts_three_segments(void) {
+static void test_get_path_parts_three_segments(void)
+{
     StringList *parts = get_path_parts("/foo/bar/baz");
     ASSERT(parts->count == 3);
     ASSERT_STR_EQ(parts->items[0], "foo");
@@ -197,18 +244,21 @@ static void test_get_path_parts_three_segments(void) {
     ASSERT_STR_EQ(parts->items[2], "baz");
 }
 
-static void test_get_path_parts_single_segment(void) {
+static void test_get_path_parts_single_segment(void)
+{
     StringList *parts = get_path_parts("/foo");
     ASSERT(parts->count == 1);
     ASSERT_STR_EQ(parts->items[0], "foo");
 }
 
-static void test_get_path_parts_root(void) {
+static void test_get_path_parts_root(void)
+{
     StringList *parts = get_path_parts("/");
     ASSERT(parts->count == 0);
 }
 
-static void test_expand_path_tilde(void) {
+static void test_expand_path_tilde(void)
+{
     const char *home = getenv("HOME");
     char expected[4096];
     snprintf(expected, sizeof(expected), "%s/projects/", home);
@@ -216,17 +266,20 @@ static void test_expand_path_tilde(void) {
     ASSERT_STR_EQ(result, expected);
 }
 
-static void test_expand_path_dotdot(void) {
+static void test_expand_path_dotdot(void)
+{
     char *result = expand_path("/foo/bar/../baz");
     ASSERT_STR_EQ(result, "/foo/baz/");
 }
 
-static void test_expand_path_dot(void) {
+static void test_expand_path_dot(void)
+{
     char *result = expand_path("/foo/./bar");
     ASSERT_STR_EQ(result, "/foo/bar/");
 }
 
-static void test_expand_path_file_tilde(void) {
+static void test_expand_path_file_tilde(void)
+{
     const char *home = getenv("HOME");
     char expected[4096];
     snprintf(expected, sizeof(expected), "%s/.env", home);
@@ -234,12 +287,14 @@ static void test_expand_path_file_tilde(void) {
     ASSERT_STR_EQ(result, expected);
 }
 
-static void test_expand_path_file_dotdot(void) {
+static void test_expand_path_file_dotdot(void)
+{
     char *result = expand_path_file("/foo/bar/../baz.txt");
     ASSERT_STR_EQ(result, "/foo/baz.txt");
 }
 
-static void test_expand_path_relative(void) {
+static void test_expand_path_relative(void)
+{
     char *cwd = getcwd(nullptr, 0);
     char expected[4096];
     snprintf(expected, sizeof(expected), "%s/foo/bar/", cwd);
@@ -248,23 +303,27 @@ static void test_expand_path_relative(void) {
     free(cwd);
 }
 
-static void test_expand_path_multiple_dotdot(void) {
+static void test_expand_path_multiple_dotdot(void)
+{
     char *result = expand_path("/a/b/c/../../d");
     ASSERT_STR_EQ(result, "/a/d/");
 }
 
-static void test_expand_path_dotdot_past_root(void) {
+static void test_expand_path_dotdot_past_root(void)
+{
     // Can't go above root — extra '..' is a no-op
     char *result = expand_path("/foo/../../bar");
     ASSERT_STR_EQ(result, "/bar/");
 }
 
-static void test_expand_path_absolute_no_tilde(void) {
+static void test_expand_path_absolute_no_tilde(void)
+{
     char *result = expand_path("/usr/local/bin");
     ASSERT_STR_EQ(result, "/usr/local/bin/");
 }
 
-static void test_get_path_parts_trailing_slash(void) {
+static void test_get_path_parts_trailing_slash(void)
+{
     StringList *parts = get_path_parts("/foo/bar/");
     ASSERT(parts->count == 2);
     ASSERT_STR_EQ(parts->items[0], "foo");
@@ -273,7 +332,8 @@ static void test_get_path_parts_trailing_slash(void) {
 
 // --- types tests ---
 
-static void test_sb_from_string_list_empty(void) {
+static void test_sb_from_string_list_empty(void)
+{
     StringList list = {0};
     String_Builder sb = sb_from_string_list(&list);
     // empty list → just the leading "/"
@@ -281,50 +341,58 @@ static void test_sb_from_string_list_empty(void) {
     ASSERT(sb.items[0] == '/');
 }
 
-static void test_sb_from_string_list_single(void) {
+static void test_sb_from_string_list_single(void)
+{
     StringList list = {0};
     da_append(&list, "foo");
     String_Builder sb = sb_from_string_list(&list);
-    sb_append_nullptr(&sb);
+    sb_append_null(&sb);
     ASSERT_STR_EQ(sb.items, "/foo/");
 }
 
-static void test_sb_from_string_list_multiple(void) {
+static void test_sb_from_string_list_multiple(void)
+{
     StringList list = {0};
     da_append(&list, "a");
     da_append(&list, "b");
     da_append(&list, "c");
     String_Builder sb = sb_from_string_list(&list);
-    sb_append_nullptr(&sb);
+    sb_append_null(&sb);
     ASSERT_STR_EQ(sb.items, "/a/b/c/");
 }
 
 // --- is_directory tests ---
 
-static void test_is_directory_with_dir(void) {
+static void test_is_directory_with_dir(void)
+{
     ASSERT(is_directory("/tmp") == 1);
 }
 
-static void test_is_directory_with_file(void) {
+static void test_is_directory_with_file(void)
+{
     char *path = write_temp_file("x");
     ASSERT(is_directory(path) == 0);
-    unlink(path); free(path);
+    unlink(path);
+    free(path);
 }
 
-static void test_is_directory_nonexistent(void) {
+static void test_is_directory_nonexistent(void)
+{
     ASSERT(is_directory("/tmp/envwalk_no_such_dir_xyz") == 0);
 }
 
 // --- parse_params tests ---
 
-static void test_parse_params_no_args(void) {
+static void test_parse_params_no_args(void)
+{
     const char *argv[] = {"envwalk"};
     Params *p = parse_params(1, argv);
     ASSERT(p->action == RUN);
     ASSERT(p->text == nullptr);
 }
 
-static void test_parse_params_allow_no_path(void) {
+static void test_parse_params_allow_no_path(void)
+{
     const char *argv[] = {"envwalk", "allow"};
     Params *p = parse_params(2, argv);
     ASSERT(p->action == ALLOW);
@@ -332,34 +400,39 @@ static void test_parse_params_allow_no_path(void) {
     ASSERT(p->text == nullptr);
 }
 
-static void test_parse_params_allow_with_path(void) {
+static void test_parse_params_allow_with_path(void)
+{
     const char *argv[] = {"envwalk", "allow", "/tmp"};
     Params *p = parse_params(3, argv);
     ASSERT(p->action == ALLOW);
     ASSERT_STR_EQ(p->text, "/tmp/");
 }
 
-static void test_parse_params_deny_with_path(void) {
+static void test_parse_params_deny_with_path(void)
+{
     const char *argv[] = {"envwalk", "deny", "/tmp"};
     Params *p = parse_params(3, argv);
     ASSERT(p->action == DENY);
     ASSERT_STR_EQ(p->text, "/tmp/");
 }
 
-static void test_parse_params_list(void) {
+static void test_parse_params_list(void)
+{
     const char *argv[] = {"envwalk", "list"};
     Params *p = parse_params(2, argv);
     ASSERT(p->action == LIST);
 }
 
-static void test_parse_params_chpwd(void) {
+static void test_parse_params_chpwd(void)
+{
     const char *argv[] = {"envwalk", "cd", "/old/path"};
     Params *p = parse_params(3, argv);
     ASSERT(p->action == CHPWD);
     ASSERT_STR_EQ(p->text, "/old/path/");
 }
 
-static void test_parse_params_hook(void) {
+static void test_parse_params_hook(void)
+{
     const char *argv[] = {"envwalk", "hook", "zsh"};
     Params *p = parse_params(3, argv);
     ASSERT(p->action == HOOK);
@@ -367,7 +440,8 @@ static void test_parse_params_hook(void) {
     ASSERT_STR_EQ(p->text, "zsh");
 }
 
-static void test_parse_params_actions_case_insensitive(void) {
+static void test_parse_params_actions_case_insensitive(void)
+{
     const char *argv_allow[] = {"envwalk", "ALLOW"};
     ASSERT(parse_params(2, argv_allow)->action == ALLOW);
 
@@ -384,7 +458,8 @@ static void test_parse_params_actions_case_insensitive(void) {
     ASSERT(parse_params(3, argv_hook)->action == HOOK);
 }
 
-static void test_parse_params_quoted_path(void) {
+static void test_parse_params_quoted_path(void)
+{
     // Surrounding quotes are stripped before path expansion
     const char *argv[] = {"envwalk", "allow", "\"/tmp\""};
     Params *p = parse_params(3, argv);
@@ -392,7 +467,8 @@ static void test_parse_params_quoted_path(void) {
     ASSERT_STR_EQ(p->text, "/tmp/");
 }
 
-static void test_parse_params_hook_multi_arg(void) {
+static void test_parse_params_hook_multi_arg(void)
+{
     // Extra args are concatenated with a space for HOOK
     const char *argv[] = {"envwalk", "hook", "bash", "--norc"};
     Params *p = parse_params(4, argv);
@@ -404,14 +480,16 @@ static void test_parse_params_hook_multi_arg(void) {
 
 // Creates a temp dir for HOME with a .config/ subdir inside.
 // The caller must restore HOME and free the returned pointer.
-static char *config_setup(const char *config_content) {
+static char *config_setup(const char *config_content)
+{
     char *home = strdup("/tmp/envwalk_home_XXXXXX");
     mkdtemp(home);
     char config_dir[4096];
     snprintf(config_dir, sizeof(config_dir), "%s/.config", home);
     mkdir(config_dir, 0755);
 
-    if (config_content != nullptr) {
+    if (config_content != nullptr)
+    {
         char config_path[4096];
         snprintf(config_path, sizeof(config_path), "%s/.config/envwalk", home);
         int fd = open(config_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -424,20 +502,23 @@ static char *config_setup(const char *config_content) {
     return home;
 }
 
-static void config_teardown(const char *orig_home, char *home) {
+static void config_teardown(const char *orig_home, char *home)
+{
     setenv("HOME", orig_home, 1);
     free(home);
 }
 
 // Suppress logs, call parse_config(), restore logs.
 // Used when the config file is expected to be absent.
-static void parse_config_quiet(void) {
-    nob_set_log_handler(nob_nullptr_log_handler);
+static void parse_config_quiet(void)
+{
+    nob_set_log_handler(nob_null_log_handler);
     parse_config();
     nob_set_log_handler(nob_default_log_handler);
 }
 
-static void test_config_empty(void) {
+static void test_config_empty(void)
+{
     const char *orig = getenv("HOME");
     char *home = config_setup(nullptr);
     parse_config_quiet();
@@ -445,7 +526,8 @@ static void test_config_empty(void) {
     config_teardown(orig, home);
 }
 
-static void test_config_parse_allowed_paths(void) {
+static void test_config_parse_allowed_paths(void)
+{
     const char *orig = getenv("HOME");
     // Paths stored in config must be in expanded (trailing-slash) form,
     // matching what allow_path() writes via main()'s expand_path().
@@ -457,7 +539,8 @@ static void test_config_parse_allowed_paths(void) {
     config_teardown(orig, home);
 }
 
-static void test_config_parse_skips_comments_and_unknowns(void) {
+static void test_config_parse_skips_comments_and_unknowns(void)
+{
     const char *orig = getenv("HOME");
     char *home = config_setup("# comment\n\nunknown=foo\nallowed=/tmp/\n");
     parse_config();
@@ -466,34 +549,38 @@ static void test_config_parse_skips_comments_and_unknowns(void) {
     config_teardown(orig, home);
 }
 
-static void test_config_allow_path(void) {
+static void test_config_allow_path(void)
+{
     const char *orig = getenv("HOME");
     char *home = config_setup(nullptr);
     parse_config_quiet();
     ASSERT(!is_path_allowed("/tmp/"));
-    allow_path("/tmp/");  // pre-expanded, as main() would pass it
+    allow_path("/tmp/"); // pre-expanded, as main() would pass it
     ASSERT(is_path_allowed("/tmp/"));
     config_teardown(orig, home);
 }
 
-static void test_config_allow_path_non_directory(void) {
+static void test_config_allow_path_non_directory(void)
+{
     const char *orig = getenv("HOME");
     char *home = config_setup(nullptr);
     parse_config_quiet();
     char *f = write_temp_file("x");
-    nob_set_log_handler(nob_nullptr_log_handler);
-    ASSERT(allow_path(f) == 1);  // must fail — not a directory
+    nob_set_log_handler(nob_null_log_handler);
+    ASSERT(allow_path(f) == 1); // must fail — not a directory
     nob_set_log_handler(nob_default_log_handler);
-    unlink(f); free(f);
+    unlink(f);
+    free(f);
     config_teardown(orig, home);
 }
 
-static void test_config_allow_path_duplicate(void) {
+static void test_config_allow_path_duplicate(void)
+{
     const char *orig = getenv("HOME");
     char *home = config_setup(nullptr);
     parse_config_quiet();
     allow_path("/tmp/");
-    allow_path("/tmp/");  // second call should be a no-op
+    allow_path("/tmp/"); // second call should be a no-op
 
     // Verify by reading back the saved config file
     char config_path[4096];
@@ -501,14 +588,17 @@ static void test_config_allow_path_duplicate(void) {
     Variables vars = {0};
     parse_dotenv(&vars, config_path);
     size_t count = 0;
-    for (size_t i = 0; i < vars.count; ++i) {
-        if (sv_eq(vars.items[i].key, sv_from_cstr("allowed"))) count++;
+    for (size_t i = 0; i < vars.count; ++i)
+    {
+        if (sv_eq(vars.items[i].key, sv_from_cstr("allowed")))
+            count++;
     }
     ASSERT(count == 1);
     config_teardown(orig, home);
 }
 
-static void test_config_deny_path(void) {
+static void test_config_deny_path(void)
+{
     const char *orig = getenv("HOME");
     char *home = config_setup(nullptr);
     parse_config_quiet();
@@ -519,30 +609,34 @@ static void test_config_deny_path(void) {
     config_teardown(orig, home);
 }
 
-static void test_config_deny_path_not_present(void) {
+static void test_config_deny_path_not_present(void)
+{
     const char *orig = getenv("HOME");
     char *home = config_setup(nullptr);
     parse_config_quiet();
-    nob_set_log_handler(nob_nullptr_log_handler);
-    ASSERT(deny_path("/tmp/") == 0);  // no-op — path was never added
+    nob_set_log_handler(nob_null_log_handler);
+    ASSERT(deny_path("/tmp/") == 0); // no-op — path was never added
     nob_set_log_handler(nob_default_log_handler);
     config_teardown(orig, home);
 }
 
 // --- cli tests ---
 
-static void test_parse_shell_zsh(void) {
+static void test_parse_shell_zsh(void)
+{
     ASSERT(parse_shell("zsh") == ZSH);
     ASSERT(parse_shell("ZSH") == ZSH);
     ASSERT(parse_shell("Zsh") == ZSH);
 }
 
-static void test_parse_shell_bash(void) {
+static void test_parse_shell_bash(void)
+{
     ASSERT(parse_shell("bash") == BASH);
     ASSERT(parse_shell("BASH") == BASH);
 }
 
-static void test_parse_shell_unknown(void) {
+static void test_parse_shell_unknown(void)
+{
     ASSERT(parse_shell("fish") == UNKNOWN);
     ASSERT(parse_shell("") == UNKNOWN);
 }
@@ -555,12 +649,14 @@ extern const char _binary_hook_bash_start[];
 extern const char _binary_hook_bash_end[];
 
 // Convert embedded hook to a null-terminated string.
-static char *hook_to_str(const char *start, const char *end) {
+static char *hook_to_str(const char *start, const char *end)
+{
     return strndup(start, end - start);
 }
 
 // Check if a substring exists within an embedded hook.
-static bool hook_contains(const char *start, const char *end, const char *needle) {
+static bool hook_contains(const char *start, const char *end, const char *needle)
+{
     char *s = hook_to_str(start, end);
     bool found = strstr(s, needle) != NULL;
     free(s);
@@ -568,12 +664,14 @@ static bool hook_contains(const char *start, const char *end, const char *needle
 }
 
 // Count occurrences of needle in an embedded hook.
-static int hook_count(const char *start, const char *end, const char *needle) {
+static int hook_count(const char *start, const char *end, const char *needle)
+{
     char *s = hook_to_str(start, end);
     size_t needle_len = strlen(needle);
     int count = 0;
     const char *p = s;
-    while ((p = strstr(p, needle)) != NULL) {
+    while ((p = strstr(p, needle)) != NULL)
+    {
         count++;
         p += needle_len;
     }
@@ -582,7 +680,8 @@ static int hook_count(const char *start, const char *end, const char *needle) {
 }
 
 // Format the hook (replace %s with bin path) into a malloc'd string.
-static char *hook_format(const char *start, const char *end, const char *bin) {
+static char *hook_format(const char *start, const char *end, const char *bin)
+{
     char *format = hook_to_str(start, end);
     size_t buf_size = (end - start) + 2 * strlen(bin) + 1;
     char *buf = malloc(buf_size);
@@ -593,35 +692,42 @@ static char *hook_format(const char *start, const char *end, const char *bin) {
 
 // --- zsh hook tests ---
 
-static void test_hook_zsh_defines_envwalk_exec(void) {
+static void test_hook_zsh_defines_envwalk_exec(void)
+{
     ASSERT(hook_contains(_binary_hook_zsh_start, _binary_hook_zsh_end, "envwalk_exec()"));
 }
 
-static void test_hook_zsh_defines_envwalk_chpwd(void) {
+static void test_hook_zsh_defines_envwalk_chpwd(void)
+{
     ASSERT(hook_contains(_binary_hook_zsh_start, _binary_hook_zsh_end, "envwalk_chpwd()"));
 }
 
-static void test_hook_zsh_skips_cd(void) {
+static void test_hook_zsh_skips_cd(void)
+{
     // The skip_cmds array must contain cd
     ASSERT(hook_contains(_binary_hook_zsh_start, _binary_hook_zsh_end, "skip_cmds=("));
     ASSERT(hook_contains(_binary_hook_zsh_start, _binary_hook_zsh_end, " cd)"));
 }
 
-static void test_hook_zsh_skips_zoxide(void) {
+static void test_hook_zsh_skips_zoxide(void)
+{
     ASSERT(hook_contains(_binary_hook_zsh_start, _binary_hook_zsh_end, "zoxide"));
 }
 
-static void test_hook_zsh_registers_preexec(void) {
+static void test_hook_zsh_registers_preexec(void)
+{
     ASSERT(hook_contains(_binary_hook_zsh_start, _binary_hook_zsh_end,
                          "add-zsh-hook preexec envwalk_exec"));
 }
 
-static void test_hook_zsh_registers_chpwd(void) {
+static void test_hook_zsh_registers_chpwd(void)
+{
     ASSERT(hook_contains(_binary_hook_zsh_start, _binary_hook_zsh_end,
                          "add-zsh-hook chpwd envwalk_chpwd"));
 }
 
-static void test_hook_zsh_unregisters_before_registering(void) {
+static void test_hook_zsh_unregisters_before_registering(void)
+{
     // The hook should remove old hooks before adding new ones
     ASSERT(hook_contains(_binary_hook_zsh_start, _binary_hook_zsh_end,
                          "add-zsh-hook -d preexec envwalk_exec"));
@@ -629,16 +735,19 @@ static void test_hook_zsh_unregisters_before_registering(void) {
                          "add-zsh-hook -d chpwd envwalk_chpwd"));
 }
 
-static void test_hook_zsh_inits_prev_pwd(void) {
+static void test_hook_zsh_inits_prev_pwd(void)
+{
     ASSERT(hook_contains(_binary_hook_zsh_start, _binary_hook_zsh_end,
                          "ENVWALK_PREV_PWD=\"$PWD\""));
 }
 
-static void test_hook_zsh_has_two_format_specifiers(void) {
+static void test_hook_zsh_has_two_format_specifiers(void)
+{
     ASSERT(hook_count(_binary_hook_zsh_start, _binary_hook_zsh_end, "%s") == 2);
 }
 
-static void test_hook_zsh_format_replaces_path(void) {
+static void test_hook_zsh_format_replaces_path(void)
+{
     char *out = hook_format(_binary_hook_zsh_start, _binary_hook_zsh_end,
                             "/usr/bin/envwalk");
     ASSERT(strstr(out, "/usr/bin/envwalk") != NULL);
@@ -648,54 +757,65 @@ static void test_hook_zsh_format_replaces_path(void) {
 
 // --- bash hook tests ---
 
-static void test_hook_bash_defines_preexec(void) {
+static void test_hook_bash_defines_preexec(void)
+{
     ASSERT(hook_contains(_binary_hook_bash_start, _binary_hook_bash_end,
                          "_envwalk_preexec()"));
 }
 
-static void test_hook_bash_defines_chpwd(void) {
+static void test_hook_bash_defines_chpwd(void)
+{
     ASSERT(hook_contains(_binary_hook_bash_start, _binary_hook_bash_end,
                          "_envwalk_chpwd()"));
 }
 
-static void test_hook_bash_skips_cd(void) {
+static void test_hook_bash_skips_cd(void)
+{
     ASSERT(hook_contains(_binary_hook_bash_start, _binary_hook_bash_end, "cd)"));
 }
 
-static void test_hook_bash_skips_zoxide(void) {
+static void test_hook_bash_skips_zoxide(void)
+{
     ASSERT(hook_contains(_binary_hook_bash_start, _binary_hook_bash_end, "zoxide"));
 }
 
-static void test_hook_bash_uses_debug_trap(void) {
+static void test_hook_bash_uses_debug_trap(void)
+{
     ASSERT(hook_contains(_binary_hook_bash_start, _binary_hook_bash_end,
                          "trap '__envwalk_hook_preexec' DEBUG"));
 }
 
-static void test_hook_bash_uses_prompt_command(void) {
+static void test_hook_bash_uses_prompt_command(void)
+{
     ASSERT(hook_contains(_binary_hook_bash_start, _binary_hook_bash_end,
                          "PROMPT_COMMAND="));
 }
 
-static void test_hook_bash_has_reentrancy_guard(void) {
+static void test_hook_bash_has_reentrancy_guard(void)
+{
     ASSERT(hook_contains(_binary_hook_bash_start, _binary_hook_bash_end,
                          "__envwalk_preexec_running"));
 }
 
-static void test_hook_bash_detects_pwd_change(void) {
+static void test_hook_bash_detects_pwd_change(void)
+{
     ASSERT(hook_contains(_binary_hook_bash_start, _binary_hook_bash_end,
                          "\"$PWD\" != \"$ENVWALK_PREV_PWD\""));
 }
 
-static void test_hook_bash_inits_prev_pwd(void) {
+static void test_hook_bash_inits_prev_pwd(void)
+{
     ASSERT(hook_contains(_binary_hook_bash_start, _binary_hook_bash_end,
                          "ENVWALK_PREV_PWD=\"$PWD\""));
 }
 
-static void test_hook_bash_has_two_format_specifiers(void) {
+static void test_hook_bash_has_two_format_specifiers(void)
+{
     ASSERT(hook_count(_binary_hook_bash_start, _binary_hook_bash_end, "%s") == 2);
 }
 
-static void test_hook_bash_format_replaces_path(void) {
+static void test_hook_bash_format_replaces_path(void)
+{
     char *out = hook_format(_binary_hook_bash_start, _binary_hook_bash_end,
                             "/usr/bin/envwalk");
     ASSERT(strstr(out, "/usr/bin/envwalk") != NULL);
@@ -705,99 +825,173 @@ static void test_hook_bash_format_replaces_path(void) {
 
 // --- main ---
 
-int main(void) {
+int main(void)
+{
     nob_minimal_log_level = NOB_ERROR;
 
     printf("dotenv:\n");
-    SUITE("basic key=value");       test_dotenv_basic();
-    SUITE("quoted value");          test_dotenv_quoted_value();
-    SUITE("comments");              test_dotenv_comments();
-    SUITE("empty lines");           test_dotenv_empty_lines();
-    SUITE("multiple keys");         test_dotenv_multiple_keys();
-    SUITE("duplicate keeps first"); test_dotenv_duplicate_keeps_first();
-    SUITE("nonexistent file");      test_dotenv_nonexistent_file();
-    SUITE("tilde value preserved"); test_dotenv_tilde_value_preserved();
-    SUITE("empty file");            test_dotenv_empty_file();
-    SUITE("no trailing newline");   test_dotenv_no_trailing_newline();
-    SUITE("value contains =");      test_dotenv_value_contains_equals();
-    SUITE("path recorded");         test_dotenv_path_recorded();
+    SUITE("basic key=value");
+    test_dotenv_basic();
+    SUITE("quoted value");
+    test_dotenv_quoted_value();
+    SUITE("comments");
+    test_dotenv_comments();
+    SUITE("empty lines");
+    test_dotenv_empty_lines();
+    SUITE("multiple keys");
+    test_dotenv_multiple_keys();
+    SUITE("duplicate keeps first");
+    test_dotenv_duplicate_keeps_first();
+    SUITE("nonexistent file");
+    test_dotenv_nonexistent_file();
+    SUITE("tilde value preserved");
+    test_dotenv_tilde_value_preserved();
+    SUITE("empty file");
+    test_dotenv_empty_file();
+    SUITE("no trailing newline");
+    test_dotenv_no_trailing_newline();
+    SUITE("value contains =");
+    test_dotenv_value_contains_equals();
+    SUITE("path recorded");
+    test_dotenv_path_recorded();
 
     printf("path:\n");
-    SUITE("parts: three segments"); test_get_path_parts_three_segments();
-    SUITE("parts: single segment"); test_get_path_parts_single_segment();
-    SUITE("parts: root");              test_get_path_parts_root();
-    SUITE("parts: trailing slash");    test_get_path_parts_trailing_slash();
-    SUITE("expand: tilde");            test_expand_path_tilde();
-    SUITE("expand: dotdot");           test_expand_path_dotdot();
-    SUITE("expand: dot");              test_expand_path_dot();
-    SUITE("expand: multiple dotdot");  test_expand_path_multiple_dotdot();
-    SUITE("expand: dotdot past root"); test_expand_path_dotdot_past_root();
-    SUITE("expand: absolute");         test_expand_path_absolute_no_tilde();
-    SUITE("expand_file: tilde");       test_expand_path_file_tilde();
-    SUITE("expand_file: dotdot");      test_expand_path_file_dotdot();
-    SUITE("expand: relative");         test_expand_path_relative();
+    SUITE("parts: three segments");
+    test_get_path_parts_three_segments();
+    SUITE("parts: single segment");
+    test_get_path_parts_single_segment();
+    SUITE("parts: root");
+    test_get_path_parts_root();
+    SUITE("parts: trailing slash");
+    test_get_path_parts_trailing_slash();
+    SUITE("expand: tilde");
+    test_expand_path_tilde();
+    SUITE("expand: dotdot");
+    test_expand_path_dotdot();
+    SUITE("expand: dot");
+    test_expand_path_dot();
+    SUITE("expand: multiple dotdot");
+    test_expand_path_multiple_dotdot();
+    SUITE("expand: dotdot past root");
+    test_expand_path_dotdot_past_root();
+    SUITE("expand: absolute");
+    test_expand_path_absolute_no_tilde();
+    SUITE("expand_file: tilde");
+    test_expand_path_file_tilde();
+    SUITE("expand_file: dotdot");
+    test_expand_path_file_dotdot();
+    SUITE("expand: relative");
+    test_expand_path_relative();
 
     printf("types:\n");
-    SUITE("sb_from_list: empty");    test_sb_from_string_list_empty();
-    SUITE("sb_from_list: single");   test_sb_from_string_list_single();
-    SUITE("sb_from_list: multiple"); test_sb_from_string_list_multiple();
+    SUITE("sb_from_list: empty");
+    test_sb_from_string_list_empty();
+    SUITE("sb_from_list: single");
+    test_sb_from_string_list_single();
+    SUITE("sb_from_list: multiple");
+    test_sb_from_string_list_multiple();
 
     printf("is_directory:\n");
-    SUITE("directory");    test_is_directory_with_dir();
-    SUITE("file");         test_is_directory_with_file();
-    SUITE("nonexistent");  test_is_directory_nonexistent();
+    SUITE("directory");
+    test_is_directory_with_dir();
+    SUITE("file");
+    test_is_directory_with_file();
+    SUITE("nonexistent");
+    test_is_directory_nonexistent();
 
     printf("parse_params:\n");
-    SUITE("no args");          test_parse_params_no_args();
-    SUITE("allow no path");    test_parse_params_allow_no_path();
-    SUITE("allow with path");  test_parse_params_allow_with_path();
-    SUITE("deny with path");   test_parse_params_deny_with_path();
-    SUITE("list");             test_parse_params_list();
-    SUITE("chpwd");            test_parse_params_chpwd();
-    SUITE("hook");             test_parse_params_hook();
-    SUITE("case insensitive"); test_parse_params_actions_case_insensitive();
-    SUITE("quoted path");      test_parse_params_quoted_path();
-    SUITE("hook multi-arg");   test_parse_params_hook_multi_arg();
+    SUITE("no args");
+    test_parse_params_no_args();
+    SUITE("allow no path");
+    test_parse_params_allow_no_path();
+    SUITE("allow with path");
+    test_parse_params_allow_with_path();
+    SUITE("deny with path");
+    test_parse_params_deny_with_path();
+    SUITE("list");
+    test_parse_params_list();
+    SUITE("chpwd");
+    test_parse_params_chpwd();
+    SUITE("hook");
+    test_parse_params_hook();
+    SUITE("case insensitive");
+    test_parse_params_actions_case_insensitive();
+    SUITE("quoted path");
+    test_parse_params_quoted_path();
+    SUITE("hook multi-arg");
+    test_parse_params_hook_multi_arg();
 
     printf("config:\n");
-    SUITE("empty config");               test_config_empty();
-    SUITE("parse allowed paths");        test_config_parse_allowed_paths();
-    SUITE("skips comments/unknowns");    test_config_parse_skips_comments_and_unknowns();
-    SUITE("allow path");                 test_config_allow_path();
-    SUITE("allow non-directory fails");  test_config_allow_path_non_directory();
-    SUITE("allow duplicate no-op");      test_config_allow_path_duplicate();
-    SUITE("deny path");                  test_config_deny_path();
-    SUITE("deny missing no-op");         test_config_deny_path_not_present();
+    SUITE("empty config");
+    test_config_empty();
+    SUITE("parse allowed paths");
+    test_config_parse_allowed_paths();
+    SUITE("skips comments/unknowns");
+    test_config_parse_skips_comments_and_unknowns();
+    SUITE("allow path");
+    test_config_allow_path();
+    SUITE("allow non-directory fails");
+    test_config_allow_path_non_directory();
+    SUITE("allow duplicate no-op");
+    test_config_allow_path_duplicate();
+    SUITE("deny path");
+    test_config_deny_path();
+    SUITE("deny missing no-op");
+    test_config_deny_path_not_present();
 
     printf("cli:\n");
-    SUITE("shell: zsh");            test_parse_shell_zsh();
-    SUITE("shell: bash");           test_parse_shell_bash();
-    SUITE("shell: unknown");        test_parse_shell_unknown();
+    SUITE("shell: zsh");
+    test_parse_shell_zsh();
+    SUITE("shell: bash");
+    test_parse_shell_bash();
+    SUITE("shell: unknown");
+    test_parse_shell_unknown();
 
     printf("hook.zsh:\n");
-    SUITE("defines envwalk_exec");       test_hook_zsh_defines_envwalk_exec();
-    SUITE("defines envwalk_chpwd");      test_hook_zsh_defines_envwalk_chpwd();
-    SUITE("skips cd");                   test_hook_zsh_skips_cd();
-    SUITE("skips zoxide");               test_hook_zsh_skips_zoxide();
-    SUITE("registers preexec");          test_hook_zsh_registers_preexec();
-    SUITE("registers chpwd");            test_hook_zsh_registers_chpwd();
-    SUITE("unregisters before register");test_hook_zsh_unregisters_before_registering();
-    SUITE("inits ENVWALK_PREV_PWD");     test_hook_zsh_inits_prev_pwd();
-    SUITE("has two %%s specifiers");     test_hook_zsh_has_two_format_specifiers();
-    SUITE("format replaces path");       test_hook_zsh_format_replaces_path();
+    SUITE("defines envwalk_exec");
+    test_hook_zsh_defines_envwalk_exec();
+    SUITE("defines envwalk_chpwd");
+    test_hook_zsh_defines_envwalk_chpwd();
+    SUITE("skips cd");
+    test_hook_zsh_skips_cd();
+    SUITE("skips zoxide");
+    test_hook_zsh_skips_zoxide();
+    SUITE("registers preexec");
+    test_hook_zsh_registers_preexec();
+    SUITE("registers chpwd");
+    test_hook_zsh_registers_chpwd();
+    SUITE("unregisters before register");
+    test_hook_zsh_unregisters_before_registering();
+    SUITE("inits ENVWALK_PREV_PWD");
+    test_hook_zsh_inits_prev_pwd();
+    SUITE("has two %%s specifiers");
+    test_hook_zsh_has_two_format_specifiers();
+    SUITE("format replaces path");
+    test_hook_zsh_format_replaces_path();
 
     printf("hook.bash:\n");
-    SUITE("defines _envwalk_preexec");   test_hook_bash_defines_preexec();
-    SUITE("defines _envwalk_chpwd");     test_hook_bash_defines_chpwd();
-    SUITE("skips cd");                   test_hook_bash_skips_cd();
-    SUITE("skips zoxide");               test_hook_bash_skips_zoxide();
-    SUITE("uses DEBUG trap");            test_hook_bash_uses_debug_trap();
-    SUITE("uses PROMPT_COMMAND");        test_hook_bash_uses_prompt_command();
-    SUITE("has re-entrancy guard");      test_hook_bash_has_reentrancy_guard();
-    SUITE("detects PWD change");         test_hook_bash_detects_pwd_change();
-    SUITE("inits ENVWALK_PREV_PWD");     test_hook_bash_inits_prev_pwd();
-    SUITE("has two %%s specifiers");     test_hook_bash_has_two_format_specifiers();
-    SUITE("format replaces path");       test_hook_bash_format_replaces_path();
+    SUITE("defines _envwalk_preexec");
+    test_hook_bash_defines_preexec();
+    SUITE("defines _envwalk_chpwd");
+    test_hook_bash_defines_chpwd();
+    SUITE("skips cd");
+    test_hook_bash_skips_cd();
+    SUITE("skips zoxide");
+    test_hook_bash_skips_zoxide();
+    SUITE("uses DEBUG trap");
+    test_hook_bash_uses_debug_trap();
+    SUITE("uses PROMPT_COMMAND");
+    test_hook_bash_uses_prompt_command();
+    SUITE("has re-entrancy guard");
+    test_hook_bash_has_reentrancy_guard();
+    SUITE("detects PWD change");
+    test_hook_bash_detects_pwd_change();
+    SUITE("inits ENVWALK_PREV_PWD");
+    test_hook_bash_inits_prev_pwd();
+    SUITE("has two %%s specifiers");
+    test_hook_bash_has_two_format_specifiers();
+    SUITE("format replaces path");
+    test_hook_bash_format_replaces_path();
 
     printf("\n%d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;

@@ -1,4 +1,4 @@
-/* nob - v3.8.0 - Public Domain - https://github.com/tsoding/nob.h
+/* nob - v3.8.2 - Public Domain - https://github.com/tsoding/nob.h
 
    This library is the next generation of the [NoBuild](https://github.com/tsoding/nobuild) idea.
 
@@ -97,14 +97,6 @@
       - NOB_REBUILD_URSELF(binary_path, source_path) - redefine how nob.h shall rebuild itself.
       - NOB_WIN32_ERR_MSG_SIZE - Redefine the capacity of the buffer for error message on Windows.
 */
-
-// FIX FOR C23
-#define _POSIX_C_SOURCE 200809L
-
-#include <time.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <limits.h>
 
 #ifndef NOB_H_
 #define NOB_H_
@@ -236,7 +228,7 @@ NOBDEF Nob_Log_Handler *nob_get_log_handler(void);
 
 NOBDEF Nob_Log_Handler nob_default_log_handler;
 NOBDEF Nob_Log_Handler nob_cancer_log_handler;
-NOBDEF Nob_Log_Handler nob_nullptr_log_handler;
+NOBDEF Nob_Log_Handler nob_null_log_handler;
 
 NOBDEF void nob_log(Nob_Log_Level level, const char *fmt, ...) NOB_PRINTF_FORMAT(2, 3);
 
@@ -280,13 +272,15 @@ typedef enum {
 } Nob_Walk_Action;
 
 typedef struct {
-    // The path to the visited file
+    // The path to the visited file. The lifetime of the path string is very short.
+    // As soon as the execution exits the Nob_Walk_Func it's dead. Dup it somewhere
+    // if you want to preserve it for longer periods of time.
     const char *path;
-    // The type of the visited file
+    // The type of the visited file.
     Nob_File_Type type;
-    // How nested we currently are in the directory tree
+    // How nested we currently are in the directory tree.
     size_t level;
-    // User data supplied in Nob_Walk_Dir_Opt.data
+    // User data supplied in Nob_Walk_Dir_Opt.data.
     void *data;
     // The action nob_walk_dir_opt() must perform after the Nob_Walk_Func has returned.
     // Default is NOB_WALK_CONT.
@@ -364,7 +358,7 @@ NOBDEF void nob_dir_entry_close(Nob_Dir_Entry dir);
                 (da)->capacity *= 2;                                                       \
             }                                                                              \
             (da)->items = NOB_DECLTYPE_CAST((da)->items)NOB_REALLOC((da)->items, (da)->capacity * sizeof(*(da)->items)); \
-            NOB_ASSERT((da)->items != nullptr && "Buy more RAM lol");                         \
+            NOB_ASSERT((da)->items != NULL && "Buy more RAM lol");                         \
         }                                                                                  \
     } while (0)
 
@@ -457,7 +451,7 @@ NOBDEF void nob_sb_pad_align(Nob_String_Builder *sb, size_t size);
 // Append a string view to a string builder
 #define nob_sb_append_sv(sb, sv) nob_sb_append_buf((sb), (sv).data, (sv).count)
 
-// Append a nullptr-terminated string to a string builder
+// Append a NULL-terminated string to a string builder
 #define nob_sb_append_cstr(sb, cstr)  \
     do {                              \
         const char *s = (cstr);       \
@@ -465,9 +459,9 @@ NOBDEF void nob_sb_pad_align(Nob_String_Builder *sb, size_t size);
         nob_da_append_many(sb, s, n); \
     } while (0)
 
-// Append a single nullptr character at the end of a string builder. So then you can
-// use it a nullptr-terminated C string
-#define nob_sb_append_nullptr(sb) nob_da_append_many(sb, "", 1)
+// Append a single NULL character at the end of a string builder. So then you can
+// use it a NULL-terminated C string
+#define nob_sb_append_null(sb) nob_da_append_many(sb, "", 1)
 
 #define nob_sb_append nob_da_append
 
@@ -655,7 +649,7 @@ typedef struct {
 } Nob_Cmd_Redirect;
 
 // Render a string representation of a command into a string builder. Keep in mind the the
-// string builder is not nullptr-terminated by default. Use nob_sb_append_nullptr if you plan to
+// string builder is not NULL-terminated by default. Use nob_sb_append_null if you plan to
 // use it as a C string.
 NOBDEF void nob_cmd_render(Nob_Cmd cmd, Nob_String_Builder *render);
 
@@ -666,9 +660,19 @@ NOBDEF void nob_cmd_render(Nob_Cmd cmd, Nob_String_Builder *render);
     #define NOB_CLIT(type) (type)
 #endif
 
-NOBDEF void nob__cmd_append(Nob_Cmd *cmd, ...);
-#define nob_cmd_append(cmd, ...) \
-    nob__cmd_append(cmd, __VA_ARGS__, (const char*)-1)
+NOBDEF void nob__cmd_append(Nob_Cmd *cmd, size_t n, const char **args);
+#if defined(__cplusplus)
+    template <typename... Args>
+    static inline void nob__cpp_cmd_append_wrapper(Nob_Cmd *cmd, Args... strs)
+    {
+        const char* args[] = { strs... };
+        nob__cmd_append(cmd, sizeof(args)/sizeof(args[0]), args);
+    }
+    #define nob_cmd_append(cmd, ...) nob__cpp_cmd_append_wrapper(cmd, __VA_ARGS__)
+#else
+    #define nob_cmd_append(cmd, ...) \
+        nob__cmd_append(cmd, sizeof((const char*[]){__VA_ARGS__})/sizeof(const char*), (const char*[]){__VA_ARGS__})
+#endif // __cplusplus
 
 // TODO: nob_cmd_extend() evaluates other_cmd twice
 // It can be fixed by turning nob_cmd_extend() call into a statement.
@@ -878,7 +882,7 @@ NOBDEF char *nob_temp_running_executable_path(void);
 //   as simple as possible and doing all of the actual work inside of ./nob)
 //
 NOBDEF void nob__go_rebuild_urself(int argc, char **argv, const char *source_path, ...);
-#define NOB_GO_REBUILD_URSELF(argc, argv) nob__go_rebuild_urself(argc, argv, __FILE__, nullptr)
+#define NOB_GO_REBUILD_URSELF(argc, argv) nob__go_rebuild_urself(argc, argv, __FILE__, NULL)
 // Sometimes your nob.c includes additional files, so you want the Go Rebuild Urself™ Technology to check
 // if they also were modified and rebuild nob.c accordingly. For that we have NOB_GO_REBUILD_URSELF_PLUS():
 // ```c
@@ -894,7 +898,7 @@ NOBDEF void nob__go_rebuild_urself(int argc, char **argv, const char *source_pat
 //     // ...
 //     return 0;
 // }
-#define NOB_GO_REBUILD_URSELF_PLUS(argc, argv, ...) nob__go_rebuild_urself(argc, argv, __FILE__, __VA_ARGS__, nullptr);
+#define NOB_GO_REBUILD_URSELF_PLUS(argc, argv, ...) nob__go_rebuild_urself(argc, argv, __FILE__, __VA_ARGS__, NULL);
 
 typedef struct {
     size_t count;
@@ -921,7 +925,7 @@ NOB_DEPRECATED("Use nob_sv_ends_with_cstr(sv, suffix) instead. "
                "Pay attention to the `s` at the end of the `end`. "
                "The reason this function was deprecated is because "
                "of the typo in the name, of course, but also "
-               "because the second argument was a nullptr-terminated string "
+               "because the second argument was a NULL-terminated string "
                "while nob_sv_starts_with() accepted Nob_String_View as the "
                "prefix which created an inconsistency in the API.")
 NOBDEF bool nob_sv_end_with(Nob_String_View sv, const char *cstr);
@@ -965,16 +969,11 @@ static Nob_Proc nob__cmd_start_process(Nob_Cmd cmd, Nob_Fd *fdin, Nob_Fd *fdout,
 // Any messages with the level below nob_minimal_log_level are going to be suppressed.
 Nob_Log_Level nob_minimal_log_level = NOB_INFO;
 
-NOBDEF void nob__cmd_append(Nob_Cmd *cmd, ...)
+NOBDEF void nob__cmd_append(Nob_Cmd *cmd, size_t n, const char **args)
 {
-    va_list args;
-    va_start(args, cmd);
-    for (;;) {
-        const char *arg = va_arg(args, const char *);
-        if (arg == (const char*)-1) break;
-        nob_da_append(cmd, arg);
+    for (size_t i = 0; i < n; ++i) {
+        nob_da_append(cmd, args[i]);
     }
-    va_end(args);
 }
 
 #ifdef _WIN32
@@ -989,21 +988,21 @@ NOBDEF void nob__cmd_append(Nob_Cmd *cmd, ...)
 
 NOBDEF char *nob_win32_error_message(DWORD err) {
     static char win32ErrMsg[NOB_WIN32_ERR_MSG_SIZE] = {0};
-    DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, err, LANG_USER_DEFAULT, win32ErrMsg,
-                                      NOB_WIN32_ERR_MSG_SIZE, nullptr);
+    DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT, win32ErrMsg,
+                                      NOB_WIN32_ERR_MSG_SIZE, NULL);
 
     if (errMsgSize == 0) {
         if (GetLastError() != ERROR_MR_MID_NOT_FOUND) {
             if (sprintf(win32ErrMsg, "Could not get error message for 0x%lX", err) > 0) {
                 return (char *)&win32ErrMsg;
             } else {
-                return nullptr;
+                return NULL;
             }
         } else {
             if (sprintf(win32ErrMsg, "Invalid Windows Error code (0x%lX)", err) > 0) {
                 return (char *)&win32ErrMsg;
             } else {
-                return nullptr;
+                return NULL;
             }
         }
     }
@@ -1035,7 +1034,7 @@ NOBDEF void nob__go_rebuild_urself(int argc, char **argv, const char *source_pat
     va_start(args, source_path);
     for (;;) {
         const char *path = va_arg(args, const char*);
-        if (path == nullptr) break;
+        if (path == NULL) break;
         nob_da_append(&source_paths, path);
     }
     va_end(args);
@@ -1113,8 +1112,8 @@ NOBDEF bool nob_copy_file(const char *src_path, const char *dst_path)
     int src_fd = -1;
     int dst_fd = -1;
     size_t buf_size = 32*1024;
-    char *buf = (char*)NOB_REALLOC(nullptr, buf_size);
-    NOB_ASSERT(buf != nullptr && "Buy more RAM lol!!");
+    char *buf = (char*)NOB_REALLOC(NULL, buf_size);
+    NOB_ASSERT(buf != NULL && "Buy more RAM lol!!");
     bool result = true;
 
     src_fd = open(src_path, O_RDONLY);
@@ -1166,7 +1165,7 @@ NOBDEF void nob_cmd_render(Nob_Cmd cmd, Nob_String_Builder *render)
 {
     for (size_t i = 0; i < cmd.count; ++i) {
         const char *arg = cmd.items[i];
-        if (arg == nullptr) break;
+        if (arg == NULL) break;
         if (i > 0) nob_sb_append_cstr(render, " ");
         if (!strchr(arg, ' ')) {
             nob_sb_append_cstr(render, arg);
@@ -1184,10 +1183,10 @@ static void nob__win32_cmd_quote(Nob_Cmd cmd, Nob_String_Builder *quoted)
 {
     for (size_t i = 0; i < cmd.count; ++i) {
         const char *arg = cmd.items[i];
-        if (arg == nullptr) break;
+        if (arg == NULL) break;
         size_t len = strlen(arg);
         if (i > 0) nob_da_append(quoted, ' ');
-        if (len != 0 && nullptr == strpbrk(arg, " \t\n\v\"")) {
+        if (len != 0 && NULL == strpbrk(arg, " \t\n\v\"")) {
             // no need to quote
             nob_da_append_many(quoted, arg, len);
         } else {
@@ -1238,9 +1237,9 @@ NOBDEF bool nob_cmd_run_opt(Nob_Cmd *cmd, Nob_Cmd_Opt opt)
     Nob_Fd fdin  = NOB_INVALID_FD;
     Nob_Fd fdout = NOB_INVALID_FD;
     Nob_Fd fderr = NOB_INVALID_FD;
-    Nob_Fd *opt_fdin  = nullptr;
-    Nob_Fd *opt_fdout = nullptr;
-    Nob_Fd *opt_fderr = nullptr;
+    Nob_Fd *opt_fdin  = NULL;
+    Nob_Fd *opt_fdout = NULL;
+    Nob_Fd *opt_fderr = NULL;
     Nob_Proc proc = NOB_INVALID_PROC;
 
     size_t max_procs = opt.max_procs > 0 ? opt.max_procs : (size_t) nob_nprocs() + 1;
@@ -1307,14 +1306,14 @@ NOBDEF bool nob_chain_cmd_opt(Nob_Chain *chain, Nob_Cmd *cmd, Nob_Chain_Cmd_Opt 
     bool result = true;
     Nob_Pipe pp = {0};
     struct {
-        Nob_Fd items[5]; // should be no more than 3, but we allocate 5 just in case
         size_t count;
+        Nob_Fd items[5]; // should be no more than 3, but we allocate 5 just in case
     } fds = {0};
 
     NOB_ASSERT(cmd->count > 0);
 
     if (chain->cmd.count != 0) { // not first cmd in the chain
-        Nob_Fd *pfdin = nullptr;
+        Nob_Fd *pfdin = NULL;
         if (chain->fdin != NOB_INVALID_FD) {
             nob_fa_append(&fds, chain->fdin);
             pfdin = &chain->fdin;
@@ -1322,7 +1321,7 @@ NOBDEF bool nob_chain_cmd_opt(Nob_Chain *chain, Nob_Cmd *cmd, Nob_Chain_Cmd_Opt 
         if (!nob_pipe_create(&pp)) nob_return_defer(false);
         nob_fa_append(&fds, pp.write);
         Nob_Fd *pfdout = &pp.write;
-        Nob_Fd *pfderr = chain->err2out ? pfdout : nullptr;
+        Nob_Fd *pfderr = chain->err2out ? pfdout : NULL;
 
         Nob_Proc proc = nob__cmd_start_process(chain->cmd, pfdin, pfdout, pfderr);
         chain->cmd.count = 0;
@@ -1357,10 +1356,10 @@ NOBDEF bool nob_chain_end_opt(Nob_Chain *chain, Nob_Chain_End_Opt opt)
 {
     bool result = true;
 
-    Nob_Fd *pfdin = nullptr;
+    Nob_Fd *pfdin = NULL;
     struct {
-        Nob_Fd items[5]; // should be no more than 3, but we allocate 5 just in case
         size_t count;
+        Nob_Fd items[5]; // should be no more than 3, but we allocate 5 just in case
     } fds = {0};
 
     if (chain->fdin != NOB_INVALID_FD) {
@@ -1392,10 +1391,10 @@ NOBDEF bool nob_chain_end_opt(Nob_Chain *chain, Nob_Chain_End_Opt opt)
         }
 
         Nob_Fd fderr = 0;
-        Nob_Fd *pfderr = nullptr;
+        Nob_Fd *pfderr = NULL;
         if (chain->err2out) pfderr = &fdout;
         if (opt.stderr_path) {
-            if (pfderr == nullptr) {
+            if (pfderr == NULL) {
                 fderr = nob_fd_open_for_write(opt.stderr_path);
                 if (fderr == NOB_INVALID_FD) nob_return_defer(false);
                 nob_fa_append(&fds, fderr);
@@ -1405,7 +1404,7 @@ NOBDEF bool nob_chain_end_opt(Nob_Chain *chain, Nob_Chain_End_Opt opt)
                 // All the stderr will go to stdout.
                 // So the stderr file is going to be empty.
                 NOB_ASSERT(chain->err2out);
-                if (!nob_write_entire_file(opt.stderr_path, nullptr, 0)) nob_return_defer(false);
+                if (!nob_write_entire_file(opt.stderr_path, NULL, 0)) nob_return_defer(false);
             }
         }
 
@@ -1465,7 +1464,7 @@ static Nob_Proc nob__cmd_start_process(Nob_Cmd cmd, Nob_Fd *fdin, Nob_Fd *fdout,
 #ifndef NOB_NO_ECHO
     Nob_String_Builder sb = {0};
     nob_cmd_render(cmd, &sb);
-    nob_sb_append_nullptr(&sb);
+    nob_sb_append_null(&sb);
     nob_log(NOB_INFO, "CMD: %s", sb.items);
     nob_sb_free(sb);
     memset(&sb, 0, sizeof(sb));
@@ -1477,7 +1476,7 @@ static Nob_Proc nob__cmd_start_process(Nob_Cmd cmd, Nob_Fd *fdin, Nob_Fd *fdout,
     STARTUPINFO siStartInfo;
     ZeroMemory(&siStartInfo, sizeof(siStartInfo));
     siStartInfo.cb = sizeof(STARTUPINFO);
-    // NOTE: theoretically setting nullptr to std handles should not be a problem
+    // NOTE: theoretically setting NULL to std handles should not be a problem
     // https://docs.microsoft.com/en-us/windows/console/getstdhandle?redirectedfrom=MSDN#attachdetach-behavior
     // TODO: check for errors in GetStdHandle
     siStartInfo.hStdError = fderr ? *fderr : GetStdHandle(STD_ERROR_HANDLE);
@@ -1490,8 +1489,8 @@ static Nob_Proc nob__cmd_start_process(Nob_Cmd cmd, Nob_Fd *fdin, Nob_Fd *fdout,
 
     Nob_String_Builder quoted = {0};
     nob__win32_cmd_quote(cmd, &quoted);
-    nob_sb_append_nullptr(&quoted);
-    BOOL bSuccess = CreateProcessA(nullptr, quoted.items, nullptr, nullptr, TRUE, 0, nullptr, nullptr, &siStartInfo, &piProcInfo);
+    nob_sb_append_null(&quoted);
+    BOOL bSuccess = CreateProcessA(NULL, quoted.items, NULL, NULL, TRUE, 0, NULL, NULL, &siStartInfo, &piProcInfo);
     nob_sb_free(quoted);
 
     if (!bSuccess) {
@@ -1533,11 +1532,11 @@ static Nob_Proc nob__cmd_start_process(Nob_Cmd cmd, Nob_Fd *fdin, Nob_Fd *fdout,
 
         // NOTE: This leaks a bit of memory in the child process.
         // But do we actually care? It's a one off leak anyway...
-        Nob_Cmd cmd_nullptr = {0};
-        nob_da_append_many(&cmd_nullptr, cmd.items, cmd.count);
-        nob_cmd_append(&cmd_nullptr, nullptr);
+        Nob_Cmd cmd_null = {0};
+        nob_da_append_many(&cmd_null, cmd.items, cmd.count);
+        nob_cmd_append(&cmd_null, (const char*)NULL);
 
-        if (execvp(cmd.items[0], (char * const*) cmd_nullptr.items) < 0) {
+        if (execvp(cmd.items[0], (char * const*) cmd_null.items) < 0) {
             nob_log(NOB_ERROR, "Could not exec child process for %s: %s", cmd.items[0], strerror(errno));
             exit(1);
         }
@@ -1550,12 +1549,12 @@ static Nob_Proc nob__cmd_start_process(Nob_Cmd cmd, Nob_Fd *fdin, Nob_Fd *fdout,
 
 NOBDEF Nob_Proc nob_cmd_run_async(Nob_Cmd cmd)
 {
-    return nob__cmd_start_process(cmd, nullptr, nullptr, nullptr);
+    return nob__cmd_start_process(cmd, NULL, NULL, NULL);
 }
 
 NOBDEF Nob_Proc nob_cmd_run_async_and_reset(Nob_Cmd *cmd)
 {
-    Nob_Proc proc = nob__cmd_start_process(*cmd, nullptr, nullptr, nullptr);
+    Nob_Proc proc = nob__cmd_start_process(*cmd, NULL, NULL, NULL);
     cmd->count = 0;
     return proc;
 }
@@ -1601,7 +1600,7 @@ NOBDEF Nob_Fd nob_fd_open_for_read(const char *path)
                     &saAttr,
                     OPEN_EXISTING,
                     FILE_ATTRIBUTE_READONLY,
-                    nullptr);
+                    NULL);
 
     if (result == INVALID_HANDLE_VALUE) {
         nob_log(NOB_ERROR, "Could not open file %s: %s", path, nob_win32_error_message(GetLastError()));
@@ -1635,7 +1634,7 @@ NOBDEF Nob_Fd nob_fd_open_for_write(const char *path)
                     &saAttr,                         // default security
                     CREATE_ALWAYS,                   // create always
                     FILE_ATTRIBUTE_NORMAL,           // normal file
-                    nullptr                             // no attr. template
+                    NULL                             // no attr. template
                 );
 
     if (result == INVALID_HANDLE_VALUE) {
@@ -1811,7 +1810,7 @@ static int nob__proc_wait_async(Nob_Proc proc, int ms)
     }
 
     if (pid == 0) {
-        nanosleep(&duration, nullptr);
+        nanosleep(&duration, NULL);
         return 0;
     }
 
@@ -1830,7 +1829,7 @@ static int nob__proc_wait_async(Nob_Proc proc, int ms)
         return -1;
     }
 
-    nanosleep(&duration, nullptr);
+    nanosleep(&duration, NULL);
     return 0;
 #endif
 }
@@ -1854,13 +1853,13 @@ NOBDEF bool nob_cmd_run_sync_redirect(Nob_Cmd cmd, Nob_Cmd_Redirect redirect)
 
 NOBDEF bool nob_cmd_run_sync(Nob_Cmd cmd)
 {
-    Nob_Proc p = nob__cmd_start_process(cmd, nullptr, nullptr, nullptr);
+    Nob_Proc p = nob__cmd_start_process(cmd, NULL, NULL, NULL);
     return nob_proc_wait(p);
 }
 
 NOBDEF bool nob_cmd_run_sync_and_reset(Nob_Cmd *cmd)
 {
-    Nob_Proc p = nob__cmd_start_process(*cmd, nullptr, nullptr, nullptr);
+    Nob_Proc p = nob__cmd_start_process(*cmd, NULL, NULL, NULL);
     cmd->count = 0;
     return nob_proc_wait(p);
 }
@@ -1919,7 +1918,7 @@ NOBDEF void nob_default_log_handler(Nob_Log_Level level, const char *fmt, va_lis
     fprintf(stderr, "\n");
 }
 
-NOBDEF void nob_nullptr_log_handler(Nob_Log_Level level, const char *fmt, va_list args)
+NOBDEF void nob_null_log_handler(Nob_Log_Level level, const char *fmt, va_list args)
 {
     NOB_UNUSED(level);
     NOB_UNUSED(fmt);
@@ -1971,7 +1970,7 @@ NOBDEF bool nob_dir_entry_open(const char *dir_path, Nob_Dir_Entry *dir)
     }
 #else
     dir->nob__private.posix_dir = opendir(dir_path);
-    if (dir->nob__private.posix_dir == nullptr) {
+    if (dir->nob__private.posix_dir == NULL) {
         nob_log(NOB_ERROR, "Could not open directory %s: %s", dir_path, strerror(errno));
         dir->error = true;
         return false;
@@ -1999,7 +1998,7 @@ NOBDEF bool nob_dir_entry_next(Nob_Dir_Entry *dir)
 #else
     errno = 0;
     dir->nob__private.posix_ent = readdir(dir->nob__private.posix_dir);
-    if (dir->nob__private.posix_ent == nullptr) {
+    if (dir->nob__private.posix_ent == NULL) {
         if (errno == 0) return false;
         nob_log(NOB_ERROR, "Could not read next directory entry: %s", strerror(errno));
         dir->error = true;
@@ -2019,12 +2018,12 @@ NOBDEF void nob_dir_entry_close(Nob_Dir_Entry dir)
 #endif
 }
 
-// On the moment of entering `nob__walk_dir_opt_impl()`, the `file_path` Nob_String_Builder is expected to be nullptr-terminated.
-// So you can freely pass `file_path->items` to functions that expect nullptr-terminated file path.
+// On the moment of entering `nob__walk_dir_opt_impl()`, the `file_path` Nob_String_Builder is expected to be NULL-terminated.
+// So you can freely pass `file_path->items` to functions that expect NULL-terminated file path.
 // On existing `nob__walk_dir_opt_impl()` is expected to restore the original content of `file_path`
 bool nob__walk_dir_opt_impl(Nob_String_Builder *file_path, Nob_Walk_Func func, size_t level, bool *stop, Nob_Walk_Dir_Opt opt)
 {
-    NOB_ASSERT(file_path->count > 0 && "file_path was probably not properly nullptr-terminated");
+    NOB_ASSERT(file_path->count > 0 && "file_path was probably not properly NULL-terminated");
     bool result = true;
 
     Nob_Dir_Entry dir = {0};
@@ -2071,7 +2070,7 @@ bool nob__walk_dir_opt_impl(Nob_String_Builder *file_path, Nob_Walk_Func func, s
 #else
             nob_sb_appendf(file_path, "/%s", dir.name);
 #endif // _WIN32
-            nob_sb_append_nullptr(file_path);
+            nob_sb_append_null(file_path);
 
             // Recurse
             if (!nob__walk_dir_opt_impl(file_path, func, level+1, stop, opt)) nob_return_defer(false);
@@ -2112,7 +2111,7 @@ NOBDEF bool nob_walk_dir_opt(const char *root, Nob_Walk_Func func, Nob_Walk_Dir_
     Nob_String_Builder file_path = {0};
 
     nob_sb_appendf(&file_path, "%s", root);
-    nob_sb_append_nullptr(&file_path);
+    nob_sb_append_null(&file_path);
 
     bool stop = false;
     bool ok = nob__walk_dir_opt_impl(&file_path, func, 0, &stop, opt);
@@ -2140,9 +2139,9 @@ NOBDEF bool nob_write_entire_file(const char *path, const void *data, size_t siz
 {
     bool result = true;
 
-    const char *buf = nullptr;
+    const char *buf = NULL;
     FILE *f = fopen(path, "wb");
-    if (f == nullptr) {
+    if (f == NULL) {
         nob_log(NOB_ERROR, "Could not open file %s for writing: %s\n", path, strerror(errno));
         nob_return_defer(false);
     }
@@ -2253,13 +2252,13 @@ NOBDEF bool nob_copy_directory_recursively(const char *src_path, const char *dst
                 nob_sb_append_cstr(&src_sb, src_path);
                 nob_sb_append_cstr(&src_sb, "/");
                 nob_sb_append_cstr(&src_sb, children.items[i]);
-                nob_sb_append_nullptr(&src_sb);
+                nob_sb_append_null(&src_sb);
 
                 dst_sb.count = 0;
                 nob_sb_append_cstr(&dst_sb, dst_path);
                 nob_sb_append_cstr(&dst_sb, "/");
                 nob_sb_append_cstr(&dst_sb, children.items[i]);
-                nob_sb_append_nullptr(&dst_sb);
+                nob_sb_append_null(&dst_sb);
 
                 if (!nob_copy_directory_recursively(src_sb.items, dst_sb.items)) {
                     nob_return_defer(false);
@@ -2297,7 +2296,7 @@ NOBDEF char *nob_temp_strdup(const char *cstr)
 {
     size_t n = strlen(cstr);
     char *result = (char*)nob_temp_alloc(n + 1);
-    NOB_ASSERT(result != nullptr && "Increase NOB_TEMP_CAPACITY");
+    NOB_ASSERT(result != NULL && "Increase NOB_TEMP_CAPACITY");
     memcpy(result, cstr, n);
     result[n] = '\0';
     return result;
@@ -2306,7 +2305,7 @@ NOBDEF char *nob_temp_strdup(const char *cstr)
 NOBDEF char *nob_temp_strndup(const char *s, size_t n)
 {
     char *r = (char*)nob_temp_alloc(n + 1);
-    NOB_ASSERT(r != nullptr && "Extend the size of the temporary allocator");
+    NOB_ASSERT(r != NULL && "Extend the size of the temporary allocator");
     memcpy(r, s, n);
     r[n] = '\0';
     return r;
@@ -2316,7 +2315,7 @@ NOBDEF void *nob_temp_alloc(size_t requested_size)
 {
     size_t word_size = sizeof(uintptr_t);
     size_t size = (requested_size + word_size - 1)/word_size*word_size;
-    if (nob_temp_size + size > NOB_TEMP_CAPACITY) return nullptr;
+    if (nob_temp_size + size > NOB_TEMP_CAPACITY) return NULL;
     void *result = &nob_temp[nob_temp_size];
     nob_temp_size += size;
     return result;
@@ -2326,12 +2325,12 @@ NOBDEF char *nob_temp_vsprintf(const char *format, va_list ap)
 {
     va_list args;
     va_copy(args, ap);
-    int n = vsnprintf(nullptr, 0, format, args);
+    int n = vsnprintf(NULL, 0, format, args);
     va_end(args);
 
     NOB_ASSERT(n >= 0);
     char *result = (char*)nob_temp_alloc(n + 1);
-    NOB_ASSERT(result != nullptr && "Extend the size of the temporary allocator");
+    NOB_ASSERT(result != NULL && "Extend the size of the temporary allocator");
     // TODO: use proper arenas for the temporary allocator;
     va_copy(args, ap);
     vsnprintf(result, n + 1, format, args);
@@ -2374,7 +2373,7 @@ NOBDEF int nob_needs_rebuild(const char *output_path, const char **input_paths, 
 #ifdef _WIN32
     BOOL bSuccess;
 
-    HANDLE output_path_fd = CreateFile(output_path, GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr);
+    HANDLE output_path_fd = CreateFile(output_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
     if (output_path_fd == INVALID_HANDLE_VALUE) {
         // NOTE: if output does not exist it 100% must be rebuilt
         if (GetLastError() == ERROR_FILE_NOT_FOUND) return 1;
@@ -2382,7 +2381,7 @@ NOBDEF int nob_needs_rebuild(const char *output_path, const char **input_paths, 
         return -1;
     }
     FILETIME output_path_time;
-    bSuccess = GetFileTime(output_path_fd, nullptr, nullptr, &output_path_time);
+    bSuccess = GetFileTime(output_path_fd, NULL, NULL, &output_path_time);
     CloseHandle(output_path_fd);
     if (!bSuccess) {
         nob_log(NOB_ERROR, "Could not get time of %s: %s", output_path, nob_win32_error_message(GetLastError()));
@@ -2391,14 +2390,14 @@ NOBDEF int nob_needs_rebuild(const char *output_path, const char **input_paths, 
 
     for (size_t i = 0; i < input_paths_count; ++i) {
         const char *input_path = input_paths[i];
-        HANDLE input_path_fd = CreateFile(input_path, GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr);
+        HANDLE input_path_fd = CreateFile(input_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
         if (input_path_fd == INVALID_HANDLE_VALUE) {
             // NOTE: non-existing input is an error cause it is needed for building in the first place
             nob_log(NOB_ERROR, "Could not open file %s: %s", input_path, nob_win32_error_message(GetLastError()));
             return -1;
         }
         FILETIME input_path_time;
-        bSuccess = GetFileTime(input_path_fd, nullptr, nullptr, &input_path_time);
+        bSuccess = GetFileTime(input_path_fd, NULL, NULL, &input_path_time);
         CloseHandle(input_path_fd);
         if (!bSuccess) {
             nob_log(NOB_ERROR, "Could not get time of %s: %s", input_path, nob_win32_error_message(GetLastError()));
@@ -2447,7 +2446,7 @@ NOBDEF const char *nob_path_name(const char *path)
 #ifdef _WIN32
     const char *p1 = strrchr(path, '/');
     const char *p2 = strrchr(path, '\\');
-    const char *p = (p1 > p2)? p1 : p2;  // nullptr is ignored if the other search is successful
+    const char *p = (p1 > p2)? p1 : p2;  // NULL is ignored if the other search is successful
     return p ? p + 1 : path;
 #else
     const char *p = strrchr(path, '/');
@@ -2481,7 +2480,7 @@ NOBDEF bool nob_read_entire_file(const char *path, Nob_String_Builder *sb)
     FILE *f = fopen(path, "rb");
     size_t new_count = 0;
     long long m = 0;
-    if (f == nullptr)                 nob_return_defer(false);
+    if (f == NULL)                 nob_return_defer(false);
     if (fseek(f, 0, SEEK_END) < 0) nob_return_defer(false);
 #ifndef _WIN32
     m = ftell(f);
@@ -2494,7 +2493,7 @@ NOBDEF bool nob_read_entire_file(const char *path, Nob_String_Builder *sb)
     new_count = sb->count + m;
     if (new_count > sb->capacity) {
         sb->items = NOB_DECLTYPE_CAST(sb->items)NOB_REALLOC(sb->items, new_count);
-        NOB_ASSERT(sb->items != nullptr && "Buy more RAM lool!!");
+        NOB_ASSERT(sb->items != NULL && "Buy more RAM lool!!");
         sb->capacity = new_count;
     }
 
@@ -2516,12 +2515,12 @@ NOBDEF int nob_sb_appendf(Nob_String_Builder *sb, const char *fmt, ...)
     va_list args;
 
     va_start(args, fmt);
-    int n = vsnprintf(nullptr, 0, fmt, args);
+    int n = vsnprintf(NULL, 0, fmt, args);
     va_end(args);
 
-    // NOTE: the new_capacity needs to be +1 because of the nullptr terminator.
+    // NOTE: the new_capacity needs to be +1 because of the null terminator.
     // However, further below we increase sb->count by n, not n + 1.
-    // This is because we don't want the sb to include the nullptr terminator. The user can always sb_append_nullptr() if they want it
+    // This is because we don't want the sb to include the null terminator. The user can always sb_append_null() if they want it
     nob_da_reserve(sb, sb->count + n + 1);
     char *dest = sb->items + sb->count;
     va_start(args, fmt);
@@ -2715,24 +2714,24 @@ NOBDEF int nob_file_exists(const char *file_path)
 NOBDEF const char *nob_get_current_dir_temp(void)
 {
 #ifdef _WIN32
-    DWORD nBufferLength = GetCurrentDirectory(0, nullptr);
+    DWORD nBufferLength = GetCurrentDirectory(0, NULL);
     if (nBufferLength == 0) {
         nob_log(NOB_ERROR, "could not get current directory: %s", nob_win32_error_message(GetLastError()));
-        return nullptr;
+        return NULL;
     }
 
     char *buffer = (char*) nob_temp_alloc(nBufferLength);
     if (GetCurrentDirectory(nBufferLength, buffer) == 0) {
         nob_log(NOB_ERROR, "could not get current directory: %s", nob_win32_error_message(GetLastError()));
-        return nullptr;
+        return NULL;
     }
 
     return buffer;
 #else
     char *buffer = (char*) nob_temp_alloc(PATH_MAX);
-    if (getcwd(buffer, PATH_MAX) == nullptr) {
+    if (getcwd(buffer, PATH_MAX) == NULL) {
         nob_log(NOB_ERROR, "could not get current directory: %s", strerror(errno));
-        return nullptr;
+        return NULL;
     }
 
     return buffer;
@@ -2769,11 +2768,11 @@ NOBDEF char *nob_temp_dir_name(const char *path)
     for (; path[i] == '/'; i--) if (!i) return nob_temp_strdup("/");
     return nob_temp_strndup(path, i + 1);
 #else
-    if (!path) path = ""; // Treating nullptr as empty.
+    if (!path) path = ""; // Treating NULL as empty.
     char *drive = (char*) nob_temp_alloc(_MAX_DRIVE);
     char *dir   = (char*) nob_temp_alloc(_MAX_DIR);
     // https://learn.microsoft.com/en-us/previous-versions/visualstudio/visual-studio-2010/8e46eyt7(v=vs.100)
-    errno_t ret = _splitpath_s(path, drive, _MAX_DRIVE, dir, _MAX_DIR, nullptr, 0, nullptr, 0);
+    errno_t ret = _splitpath_s(path, drive, _MAX_DRIVE, dir, _MAX_DIR, NULL, 0, NULL, 0);
     NOB_ASSERT(ret == 0);
     return nob_temp_sprintf("%s%s", drive, dir);
 #endif // _WIN32
@@ -2792,11 +2791,11 @@ NOBDEF char *nob_temp_file_name(const char *path)
     for (; i&&s[i-1]!='/'; i--);
     return s+i;
 #else
-    if (!path) path = ""; // Treating nullptr as empty.
+    if (!path) path = ""; // Treating NULL as empty.
     char *fname = (char*)nob_temp_alloc(_MAX_FNAME);
     char *ext   = (char*)nob_temp_alloc(_MAX_EXT);
     // https://learn.microsoft.com/en-us/previous-versions/visualstudio/visual-studio-2010/8e46eyt7(v=vs.100)
-    errno_t ret = _splitpath_s(path, nullptr, 0, nullptr, 0, fname, _MAX_FNAME, ext, _MAX_EXT);
+    errno_t ret = _splitpath_s(path, NULL, 0, NULL, 0, fname, _MAX_FNAME, ext, _MAX_EXT);
     NOB_ASSERT(ret == 0);
     return nob_temp_sprintf("%s%s", fname, ext);
 #endif // _WIN32
@@ -2807,10 +2806,10 @@ NOBDEF char *nob_temp_file_ext(const char *path)
 #ifndef _WIN32
     return strrchr(nob_temp_file_name(path), '.');
 #else
-    if (!path) path = ""; // Treating nullptr as empty.
+    if (!path) path = ""; // Treating NULL as empty.
     char *ext = (char*)nob_temp_alloc(_MAX_EXT);
     // https://learn.microsoft.com/en-us/previous-versions/visualstudio/visual-studio-2010/8e46eyt7(v=vs.100)
-    errno_t ret = _splitpath_s(path, nullptr, 0, nullptr, 0, nullptr, 0, ext, _MAX_EXT);
+    errno_t ret = _splitpath_s(path, NULL, 0, NULL, 0, NULL, 0, ext, _MAX_EXT);
     NOB_ASSERT(ret == 0);
     return ext;
 #endif // _WIN32
@@ -2825,7 +2824,7 @@ NOBDEF char *nob_temp_running_executable_path(void)
     return nob_temp_strndup(buf, length);
 #elif defined(_WIN32)
     char buf[MAX_PATH];
-    int length = GetModuleFileNameA(nullptr, buf, MAX_PATH);
+    int length = GetModuleFileNameA(NULL, buf, MAX_PATH);
     return nob_temp_strndup(buf, length);
 #elif defined(__APPLE__)
     char buf[4096];
@@ -2837,7 +2836,7 @@ NOBDEF char *nob_temp_running_executable_path(void)
     char buf[4096];
     int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
     size_t length = sizeof(buf);
-    if (sysctl(mib, 4, buf, &length, nullptr, 0) < 0) return nob_temp_strdup("");
+    if (sysctl(mib, 4, buf, &length, NULL, 0) < 0) return nob_temp_strdup("");
     return nob_temp_strndup(buf, length);
 #elif defined(__HAIKU__)
     int cookie = 0;
@@ -2878,7 +2877,7 @@ NOBDEF char *nob_temp_running_executable_path(void)
         #define Log_Handler Nob_Log_Handler
         #define set_log_handler nob_set_log_handler
         #define get_log_handler nob_get_log_handler
-        #define nullptr_log_handler nob_nullptr_log_handler
+        #define null_log_handler nob_null_log_handler
         #define default_log_handler nob_default_log_handler
         #define cancer_log_handler nob_cancer_log_handler
         // NOTE: Name log is already defined in math.h and historically always was the natural logarithmic function.
@@ -2933,7 +2932,7 @@ NOBDEF char *nob_temp_running_executable_path(void)
         #define sb_append_buf nob_sb_append_buf
         #define sb_append_sv nob_sb_append_sv
         #define sb_append_cstr nob_sb_append_cstr
-        #define sb_append_nullptr nob_sb_append_nullptr
+        #define sb_append_null nob_sb_append_null
         #define sb_append nob_sb_append
         #define sb_pad_align nob_sb_pad_align
         #define sb_free nob_sb_free
@@ -3029,6 +3028,8 @@ NOBDEF char *nob_temp_running_executable_path(void)
 /*
    Revision history:
 
+      3.8.2 (2026-04-01) Fix the broken type safety of nob_cmd_append() (by @aalmkainzi)
+      3.8.1 (2026-04-01) Fix annoying clang warning
       3.8.0 (2026-03-24) Add NOB_CLIT()
                          Fix compliation on MSVC with /TP
       3.7.0 (2026-03-20) Add nob_sb_append_sv()
@@ -3037,7 +3038,7 @@ NOBDEF char *nob_temp_running_executable_path(void)
                          Add nob_sv_ends_with_cstr() instead of nob_sv_end_with()
                          Add nob_sv_ends_with()
                          Add nob_sv_chop_right()
-      3.5.0 (2026-03-13) Add nob_nullptr_log_handler() (by @rexim)
+      3.5.0 (2026-03-13) Add nob_null_log_handler() (by @rexim)
                          Rename nob_log_handler to Nob_Log_Handler (by @rexim)
       3.4.0 (2026-03-12) Add nob_da_first() (by @rexim)
                          Add nob_da_pop() (by @rexim)
