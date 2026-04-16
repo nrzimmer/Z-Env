@@ -2,3 +2,8 @@ obj/
 .env
 .idea/
 envwalk
+*.zst
+*.deb
+*.dsc
+*.changes
+*.buildinfo

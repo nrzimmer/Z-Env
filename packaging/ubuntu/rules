@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_auto_build:
+	$(MAKE) release
+
+override_dh_auto_install:
+	install -Dm755 envwalk debian/envwalk/usr/bin/envwalk

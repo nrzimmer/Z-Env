@@ -1,0 +1,27 @@
+pkgname=envwalk
+pkgver=0.1
+pkgrel=1
+pkgdesc="Per-directory .env loader for zsh and bash"
+arch=('x86_64')
+license=('MIT')
+
+source=()
+sha256sums=()
+
+build() {
+  local repodir
+  repodir="$(realpath "$startdir/../..")"
+  make -C "$repodir" release
+}
+
+check() {
+  local repodir
+  repodir="$(realpath "$startdir/../..")"
+  make -C "$repodir" test
+}
+
+package() {
+  local repodir
+  repodir="$(realpath "$startdir/../..")"
+  install -Dm755 "$repodir/envwalk" "$pkgdir/usr/bin/envwalk"
+}

@@ -9,6 +9,9 @@ make          # debug build (default: -ggdb -O0 -rdynamic)
 make release  # optimized build (-O3 -march=native -DNDEBUG)
 make test     # build and run the test suite
 make clean    # remove obj/, envwalk binary, and test_runner
+make arch     # build Arch Linux package (requires makepkg)
+make ubuntu   # build Ubuntu/Debian package (requires debhelper)
+make package  # build both packages
 ```
 
 The compiler is `gcc` with `-std=c23 -Wall -Wextra -Wpedantic -Werror`. All warnings are treated as errors.
@@ -22,14 +25,19 @@ The compiler is `gcc` with `-std=c23 -Wall -Wextra -Wpedantic -Werror`. All warn
 - `envwalk cd <old_path>` → `chpwd()`: diffs old vs new path to determine which variables to unset, then calls `run()`. The shell hook `eval`s this on directory change.
 
 **Module breakdown:**
-- `envwalk.c` — entry point, `main()`, `run()`, `chpwd()`, hook embedding/printing
-- `config.c/h` — reads/writes `~/.config/envwalk`; manages the allowlist of directories
-- `dotenv.c/h` — parses `.env` files into `Variables` (a dynamic array of `KeyValuePair`)
-- `cli.c/h` — parses `argv` into `Params` (`Action` enum + optional `text`)
-- `path.c/h` — path utilities: `expand_path()` (dir, trailing slash), `expand_path_file()` (file, no trailing slash), `get_path_parts()`, `is_directory()`
-- `types.c/h` — `sb_from_string_list()`: builds a `/`-joined path string from a `StringList`
-- `stack_trace.c/h` — signal handler that prints a stack trace on crash
-- `nob.h` — vendored single-header utility library (tsoding/nob.h v3.8.0) providing `String_View`, `String_Builder`, dynamic arrays (`da_append`), file I/O, and logging
+- `src/envwalk.c` — entry point, `main()`, `run()`, `chpwd()`, hook embedding/printing
+- `src/config.c/h` — reads/writes `~/.config/envwalk`; manages the allowlist of directories
+- `src/dotenv.c/h` — parses `.env` files into `Variables` (a dynamic array of `KeyValuePair`)
+- `src/cli.c/h` — parses `argv` into `Params` (`Action` enum + optional `text`)
+- `src/path.c/h` — path utilities: `expand_path()` (dir, trailing slash), `expand_path_file()` (file, no trailing slash), `get_path_parts()`, `is_directory()`
+- `src/types.c/h` — `sb_from_string_list()`: builds a `/`-joined path string from a `StringList`
+- `src/stack_trace.c/h` — signal handler that prints a stack trace on crash
+- `src/third-party/nob.h` — vendored single-header utility library (tsoding/nob.h v3.8.0) providing `String_View`, `String_Builder`, dynamic arrays (`da_append`), file I/O, and logging
+- `src/hooks/hook.zsh`, `src/hooks/hook.bash` — shell hook scripts embedded into the binary via `objcopy`
+
+**Packaging:**
+- `packaging/arch/PKGBUILD` — Arch Linux package
+- `packaging/ubuntu/` — Ubuntu/Debian package control files (`control`, `changelog`, `rules`, `compat`, `copyright`, `install`)
 
 **Key data types (from nob.h):**
 - `String_View` — non-owning `{data, count}` slice
@@ -41,6 +49,6 @@ The compiler is `gcc` with `-std=c23 -Wall -Wextra -Wpedantic -Werror`. All warn
 
 ## Testing
 
-Tests live in `test.c`. The test binary is built with `-DTESTING`, which enables `config_reset_for_testing()` in `config.c`. There is no way to run a single test — all tests run together via `./test_runner`.
+Tests live in `src/test.c`. The test binary is built with `-DTESTING`, which enables `config_reset_for_testing()` in `src/config.c`. There is no way to run a single test — all tests run together via `./test_runner`.
 
-The hook scripts contain `%s` format specifiers; they are `printf`-formatted with the envwalk binary path at print time (see `hook_zsh()`/`hook_bash()` in `envwalk.c`).
+The hook scripts contain `%s` format specifiers; they are `printf`-formatted with the envwalk binary path at print time (see `hook_zsh()`/`hook_bash()` in `src/envwalk.c`).

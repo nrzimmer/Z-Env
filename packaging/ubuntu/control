@@ -1,0 +1,12 @@
+Source: envwalk
+Section: utils
+Priority: optional
+Maintainer: Natanael Rodrigo Zimmer <nrzimmer@gmail.com>
+Build-Depends: debhelper-compat (= 13), gcc, make
+Standards-Version: 4.6.0
+
+Package: envwalk
+Architecture: amd64
+Description: Per-directory .env loader for zsh and bash
+ Automatically loads and unloads .env files when entering or leaving
+ an allowed directory.
