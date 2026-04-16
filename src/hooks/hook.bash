@@ -21,7 +21,7 @@ _envwalk_chpwd() {
 }
 
 __envwalk_hook_preexec() {
-    if [[ __envwalk_preexec_running -eq 0 ]]; then
+    if [[ $__envwalk_preexec_running -eq 0 ]]; then
         _envwalk_preexec
         __envwalk_preexec_running=1
     fi

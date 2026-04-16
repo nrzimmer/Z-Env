@@ -57,7 +57,9 @@ void save_config() {
         sb_append_cstr(&sb, path);
         sb_append_cstr(&sb, "\n");
     }
-    write_entire_file(configPath, sb.items, sb.count);
+    if (!write_entire_file(configPath, sb.items, sb.count)) {
+        nob_log(NOB_ERROR, "Failed to write config file: %s", configPath);
+    }
 }
 
 bool is_path_allowed(const char *path) {
@@ -91,11 +93,6 @@ int allow_path(const char *path) {
 }
 
 int deny_path(const char *path) {
-    if (!is_directory(path)) {
-        nob_log(NOB_ERROR, "%s must be a folder", path);
-        return 1;
-    }
-
     nob_log(NOB_INFO, "Removing %s from allowed paths", path);
 
     for (size_t i = 0; i < config.allowedPaths.count; ++i) {

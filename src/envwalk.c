@@ -81,7 +81,7 @@ int chpwd(char *old_path) {
     size_t same = 0;
     for (size_t i = 0; i < max; ++i) {
         if (strcmp(old_parts->items[i], parts->items[i]) == 0) {
-            same = i;
+            same = i + 1;
         } else {
             break;
         }
@@ -89,7 +89,7 @@ int chpwd(char *old_path) {
 
     StringList *unset = calloc(1, sizeof(StringList));
 
-    for (size_t i = same; i < old_parts->count; ++i) {
+    while (old_parts->count > same) {
         String_Builder sb = sb_from_string_list(old_parts);
         --old_parts->count;
         char *filepath = expand_path(strndup(sb.items, sb.count));

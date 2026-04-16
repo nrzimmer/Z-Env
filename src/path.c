@@ -20,7 +20,7 @@ static char *normalize_path(const char *path, bool is_file) {
     StringList segments = {0};
 
     String_View token = sv_chop_by_delim(&sv, '/');
-    while (token.data[0] != 0) {
+    while (token.count != 0 || sv.count != 0) {
         if (token.count > 0) {
             if (token.count == 1 && strncmp(token.data, ".", 1) == 0) {
                 // skip
@@ -32,6 +32,7 @@ static char *normalize_path(const char *path, bool is_file) {
                 da_append(&segments, strdup(temp_sv_to_cstr(token)));
             }
         }
+        if (sv.count == 0) break;
         token = sv_chop_by_delim(&sv, '/');
     }
 
@@ -92,10 +93,10 @@ char *expand_path_file(const char *path) {
     return expand_path_inner(path, true);
 }
 
-int is_directory(const char *path) {
+bool is_directory(const char *path) {
     struct stat st;
     if (stat(path, &st) != 0) {
-        return 0;
+        return false;
     }
     return S_ISDIR(st.st_mode);
 }

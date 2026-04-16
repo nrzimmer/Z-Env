@@ -1,6 +1,5 @@
-#include "stack_trace.h"
-
 #define _GNU_SOURCE
+#include "stack_trace.h"
 #include <execinfo.h>
 #include <signal.h>
 #include <unistd.h>

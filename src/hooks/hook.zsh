@@ -1,3 +1,5 @@
+autoload -Uz add-zsh-hook
+
 add-zsh-hook -d preexec envwalk_exec
 add-zsh-hook -d chpwd envwalk_chpwd
 
@@ -7,8 +9,6 @@ envwalk_chpwd() {
     ENVWALK_PREV_PWD="$PWD"
 }
 add-zsh-hook chpwd envwalk_chpwd
-
-autoload -Uz add-zsh-hook
 envwalk_exec() {
     ENVWALK_PREV_PWD="$PWD"
     local cmd="$1"
