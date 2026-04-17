@@ -1,8 +1,16 @@
 # Compiler
 CC = gcc
 
+# Detect supported C standard flag
+CSTD := $(shell echo 'int main(void){return 0;}' > .conftest.c && \
+	$(CC) -std=c23 .conftest.c -o /dev/null >/dev/null 2>&1 && \
+	rm -f .conftest.c && echo c23 || (rm -f .conftest.c && echo c2x))
+
 # Common flags
-CFLAGS_COMMON = -std=c23 -Wall -Wextra -Wpedantic -Werror -I$(THIRDPARTY)
+CFLAGS_COMMON = -std=$(CSTD) -Wall -Wextra -Wpedantic -Werror -I$(THIRDPARTY)
+
+# GCC 13 fails if fread result is ignored
+CFLAGS_COMMON += -Wno-error=unused-result
 
 # Debug / Release flags
 CFLAGS_DEBUG = -ggdb -O0 -rdynamic -fno-omit-frame-pointer
