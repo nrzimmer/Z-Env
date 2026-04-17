@@ -1,6 +1,6 @@
 pkgname=envwalk
-pkgver=0.2
-pkgrel=4
+pkgver=0.3
+pkgrel=1
 pkgdesc="Per-directory .env loader for zsh and bash"
 arch=('x86_64')
 license=('MIT')
@@ -43,7 +43,7 @@ sha256sums=(
   'd86d50d7af019c75bc96fc2f1ceee678990f70d762b691e1150720f00b01f775'
   'b5b99eafdb7ec2b13c3a147be1855bd523196f8c523280dd608afe13297a7a05'
   'fe09502a0b228e990edcdd8e6181618840c13ff1a11befe58ef03459aa1edb64'
-  '709594a9ef5e8caf973179522737d65920acfc40339c9e73aa6bd22b1d8a3569'
+  'bcd51cdbb0e63fa107843adcae38a6e10f1d9d93b6ae86c0115b8abb8023e6db'
   'b69f72a8283207ba2ee88146e39b243adf1eb7762f94dded0da28d2f2d315bd4'
   '841d1d869d524fa818015a09fa5e118e1169d805b4728a41a186350f0959594c'
 )

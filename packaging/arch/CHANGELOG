@@ -1,3 +1,7 @@
+0.3-1 (2026-04-17)
+  * fix ubuntu packaging && GCC 13 support
+  * update readme
+
 0.2-4 (2026-04-16)
   * bump nob.h to version v3.8.2
   * add arch-install target to makefile

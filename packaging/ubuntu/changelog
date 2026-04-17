@@ -1,3 +1,10 @@
+envwalk (0.3-1) unstable; urgency=low
+
+  * fix ubuntu packaging && GCC 13 support
+  * update readme
+
+ -- Natanael Rodrigo Zimmer <nrzimmer@gmail.com>  Fri, 17 Apr 2026 11:08:57 -0300
+
 envwalk (0.2-4) unstable; urgency=low
 
   * bump nob.h to version v3.8.2
