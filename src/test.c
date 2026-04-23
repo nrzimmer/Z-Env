@@ -295,7 +295,7 @@ static void test_expand_path_file_dotdot(void)
 
 static void test_expand_path_relative(void)
 {
-    char *cwd = getcwd(nullptr, 0);
+    char *cwd = get_pwd();
     char expected[4096];
     snprintf(expected, sizeof(expected), "%s/foo/bar/", cwd);
     char *result = expand_path("foo/bar");

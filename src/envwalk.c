@@ -17,7 +17,7 @@
 #include "stack_trace.h"
 
 static int run(StringList *unsets) {
-    const char *pwd = getcwd(nullptr, 0);
+    const char *pwd = get_pwd();
     NOB_ASSERT(pwd != nullptr && "Could not get current working directory.");
     pwd = expand_path(pwd);
 
@@ -72,7 +72,7 @@ int chpwd(char *old_path) {
     // If there is an allowed folder in each partial path, we need to unset the variables on that folder env
 
     StringList *old_parts = get_path_parts(old_path);
-    const char *pwd = getcwd(nullptr, 0);
+    const char *pwd = get_pwd();
     NOB_ASSERT(pwd != nullptr && "Could not get current working directory.");
     pwd = expand_path(pwd);
     const StringList *parts = get_path_parts(pwd);
@@ -155,7 +155,7 @@ int main(const int argc, const char **argv) {
     parse_config();
 
     if (params->text == nullptr && (params->action == ALLOW || params->action == DENY)) {
-        const char *pwd = getcwd(nullptr, 0);
+        const char *pwd = get_pwd();
         NOB_ASSERT(pwd != nullptr && "Could not get current working directory.");
         params->text = expand_path(pwd);
     }
