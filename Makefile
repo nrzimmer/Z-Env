@@ -13,7 +13,7 @@ CFLAGS_COMMON = -std=$(CSTD) -Wall -Wextra -Wpedantic -Werror -I$(THIRDPARTY)
 CFLAGS_COMMON += -Wno-error=unused-result
 
 # Debug / Release flags
-CFLAGS_DEBUG = -ggdb -O0 -rdynamic -fno-omit-frame-pointer
+CFLAGS_DEBUG = -ggdb -O0 -rdynamic -fno-omit-frame-pointer -no-pie
 CFLAGS_RELEASE = -O3 -march=native -mtune=native -DNDEBUG
 
 # Default to debug
@@ -41,10 +41,10 @@ HOOKS_OBJ = $(patsubst $(HOOKSDIR)/hook.%,$(OBJDIR)/hook_%.o,$(HOOKS))
 # Default target
 all: $(TARGET)
 
-# Release target (override flags)
+# Release target
 release:
 	$(MAKE) clean
-	$(MAKE) CFLAGS="$(CFLAGS_COMMON) $(CFLAGS_RELEASE)" $(TARGET)
+	$(MAKE) $(TARGET)
 
 $(OBJDIR)/hook_%.o: $(HOOKSDIR)/hook.% | $(OBJDIR)
 	cd $(HOOKSDIR) && objcopy \
@@ -67,7 +67,9 @@ $(OBJDIR):
 
 # Test target
 test: $(TEST_OBJS) $(HOOKS_OBJ)
-	$(CC) $(TEST_OBJS) $(HOOKS_OBJ) -o test_runner
+	$(CC) $(CFLAGS_COMMON) $(CFLAGS_DEBUG) $(TEST_OBJS) $(HOOKS_OBJ) -o test_runner
+	./test_runner; rm -f test_runner
+	$(CC) $(CFLAGS_COMMON) $(CFLAGS_RELEASE) $(TEST_OBJS) $(HOOKS_OBJ) -o test_runner
 	./test_runner; rm -f test_runner
 
 $(OBJDIR)/test_%.o: $(SRCDIR)/%.c | $(OBJDIR)
