@@ -9,6 +9,8 @@
 
 #define MAX_FRAMES 64
 
+pid_t ppid;
+
 static void crash_handler(int sig, siginfo_t *info, void *ucontext) {
     (void)ucontext;
 
@@ -28,7 +30,7 @@ static void crash_handler(int sig, siginfo_t *info, void *ucontext) {
         char cmd[4096];
         int offset = snprintf(cmd, sizeof(cmd),
             "addr2line -e /proc/%d/exe -f -p",
-            getppid());  // parent binary
+            ppid);  // parent binary
 
         for (int i = 0; i < n; i++) {
             offset += snprintf(cmd + offset, sizeof(cmd) - offset,
@@ -51,10 +53,12 @@ static void crash_handler(int sig, siginfo_t *info, void *ucontext) {
 
     // ---- PARENT PROCESS ----
     // Exit immediately (don’t try to continue after crash)
+    sleep(1);
     _exit(1);
 }
 
 void setup_handler(void) {
+    ppid = getpid();
     struct sigaction sa;
 
     sa.sa_sigaction = crash_handler;
