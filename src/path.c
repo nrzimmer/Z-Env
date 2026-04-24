@@ -34,10 +34,10 @@ static char *normalize_path(const char *path, bool is_file) {
                 // skip
             } else if (token.count == 2 && strncmp(token.data, "..", 2) == 0) {
                 if (segments.count > 0) {
-                    --segments.count;
+                    free(segments.items[--segments.count]);
                 }
             } else {
-                da_append(&segments, strdup(temp_sv_to_cstr(token)));
+                da_append(&segments, strndup(token.data, token.count));
             }
         }
         if (sv.count == 0)
@@ -51,13 +51,16 @@ static char *normalize_path(const char *path, bool is_file) {
     for (size_t i = 0; i < segments.count; ++i) {
         sb_append_cstr(&sb, segments.items[i]);
         sb_append_cstr(&sb, "/");
+        free(segments.items[i]);
     }
+    free(segments.items);
+
     if (is_file) {
         --sb.count;
     }
     sb_append_null(&sb);
 
-    return strdup(sb.items);
+    return sb.items;
 }
 
 static char *expand_path_inner(const char *path, bool is_file) {
@@ -76,8 +79,8 @@ static char *expand_path_inner(const char *path, bool is_file) {
     }
 
     char *temp = strndup(sb.items, sb.count);
-
     sb.count = 0;
+
     if (temp[0] == '/') {
         sb_append_cstr(&sb, temp);
     } else {
@@ -87,10 +90,14 @@ static char *expand_path_inner(const char *path, bool is_file) {
         sb_append_cstr(&sb, pwd);
         sb_append_cstr(&sb, "/");
         sb_append_cstr(&sb, temp);
+        free(pwd);
     }
+    free(temp);
     sb_append_null(&sb);
 
-    return normalize_path(sb.items, is_file);
+    char *result = normalize_path(sb.items, is_file);
+    free(sb.items);
+    return result;
 }
 
 char *expand_path(const char *path) {

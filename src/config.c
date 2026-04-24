@@ -45,6 +45,7 @@ void parse_config() {
         char *path = strndup(line.data, line.count);
         da_append(allowedPaths, path);
     }
+    free(sb.items);
 }
 
 void save_config() {
@@ -60,20 +61,27 @@ void save_config() {
     if (!write_entire_file(configPath, sb.items, sb.count)) {
         nob_log(NOB_ERROR, "Failed to write config file: %s", configPath);
     }
+    free(sb.items);
 }
 
 bool is_path_allowed(const char *path) {
-    const char *expath = expand_path(path);
+    char *expath = expand_path(path);
+    bool found = false;
     for (size_t i = 0; i < config.allowedPaths.count; ++i) {
         if (strcmp(config.allowedPaths.items[i], expath) == 0) {
-            return true;
+            found = true;
+            break;
         }
     }
-    return false;
+    free(expath);
+    return found;
 }
 
 bool is_path_allowed_sb(const String_Builder *path) {
-    return is_path_allowed(strndup(path->items, path->count));
+    char *tmp = strndup(path->items, path->count);
+    bool result = is_path_allowed(tmp);
+    free(tmp);
+    return result;
 }
 
 int allow_path(const char *path) {

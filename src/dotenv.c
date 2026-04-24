@@ -1,3 +1,8 @@
+#define _POSIX_C_SOURCE 200809L
+
+#include <stdlib.h>
+#include <string.h>
+
 #include "dotenv.h"
 #include "nob.h"
 
@@ -40,9 +45,22 @@ bool parse_dotenv(Variables *variables, char *filepath) {
         sv_chop_prefix(&line, sv_from_cstr("\""));
         sv_chop_suffix(&line, sv_from_cstr("\""));
 
-        const KeyValuePair kv = {key, line, sv_from_cstr(filepath)};
+        const KeyValuePair kv = {
+            sv_from_cstr(strndup(key.data, key.count)),
+            sv_from_cstr(strndup(line.data, line.count)),
+            sv_from_cstr(filepath),
+        };
 
         da_append(variables, kv);
     }
+    free(sb.items);
     return true;
+}
+
+void free_variables(Variables *variables) {
+    for (size_t i = 0; i < variables->count; i++) {
+        free((char *)variables->items[i].key.data);
+        free((char *)variables->items[i].value.data);
+    }
+    free(variables->items);
 }

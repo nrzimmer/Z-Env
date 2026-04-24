@@ -21,5 +21,6 @@ typedef struct {
 } DotEnv;
 
 bool parse_dotenv(Variables *variables, char *filepath);
+void free_variables(Variables *variables);
 
 #endif

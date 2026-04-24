@@ -16,27 +16,43 @@
 #include "cli.h"
 #include "stack_trace.h"
 
+static void free_path_parts(StringList *parts, size_t count) {
+    for (size_t i = 0; i < count; i++) free(parts->items[i]);
+    free(parts->items);
+    free(parts);
+}
+
 static int run(StringList *unsets) {
-    const char *pwd = get_pwd();
-    NOB_ASSERT(pwd != nullptr && "Could not get current working directory.");
-    pwd = expand_path(pwd);
+    char *raw_pwd = get_pwd();
+    NOB_ASSERT(raw_pwd != nullptr && "Could not get current working directory.");
+    char *pwd = expand_path(raw_pwd);
+    free(raw_pwd);
 
     StringList *parts = get_path_parts(pwd);
+    free(pwd);
+    size_t total_parts = parts->count;
     Variables dot_env = {0};
 
     while (parts->count > 0) {
         String_Builder sb = sb_from_string_list(parts);
         if (is_path_allowed_sb(&sb)) {
             sb_append_cstr(&sb, "/.env");
-            char *filepath = strndup(sb.items, sb.count);
-            filepath = expand_path_file(filepath);
+            sb_append_null(&sb);
+            char *filepath = expand_path_file(sb.items);
             if (!parse_dotenv(&dot_env, filepath)) {
                 nob_log(NOB_ERROR, "Failed to parse .env file at %s", filepath);
+                free(filepath);
+                free(sb.items);
+                free_path_parts(parts, total_parts);
+                free_variables(&dot_env);
                 return 1;
             }
+            free(filepath);
         }
+        free(sb.items);
         --parts->count;
     }
+    free_path_parts(parts, total_parts);
 
     if (unsets != nullptr) {
         for (size_t i = 0; i < unsets->count; ++i) {
@@ -57,13 +73,17 @@ static int run(StringList *unsets) {
         String_View value = dot_env.items[i].value;
         char *value_str;
         if (value.count > 0 && value.data[0] == '~') {
-            value_str = expand_path_file(strndup(value.data, value.count));
+            char *tmp = strndup(value.data, value.count);
+            value_str = expand_path_file(tmp);
+            free(tmp);
         } else {
             value_str = strndup(value.data, value.count);
         }
         printf("export %.*s=\"%s\"\n", sv_dot_star(dot_env.items[i].key), value_str);
+        free(value_str);
     }
 
+    free_variables(&dot_env);
     return 0;
 }
 
@@ -72,10 +92,16 @@ int chpwd(char *old_path) {
     // If there is an allowed folder in each partial path, we need to unset the variables on that folder env
 
     StringList *old_parts = get_path_parts(old_path);
-    const char *pwd = get_pwd();
-    NOB_ASSERT(pwd != nullptr && "Could not get current working directory.");
-    pwd = expand_path(pwd);
-    const StringList *parts = get_path_parts(pwd);
+    size_t total_old_parts = old_parts->count;
+
+    char *raw_pwd = get_pwd();
+    NOB_ASSERT(raw_pwd != nullptr && "Could not get current working directory.");
+    char *pwd = expand_path(raw_pwd);
+    free(raw_pwd);
+
+    StringList *parts = get_path_parts(pwd);
+    free(pwd);
+    size_t total_parts = parts->count;
 
     const size_t max = old_parts->count < parts->count ? old_parts->count : parts->count;
     size_t same = 0;
@@ -86,28 +112,43 @@ int chpwd(char *old_path) {
             break;
         }
     }
+    free_path_parts(parts, total_parts);
 
     StringList *unset = calloc(1, sizeof(StringList));
 
     while (old_parts->count > same) {
         String_Builder sb = sb_from_string_list(old_parts);
         --old_parts->count;
-        char *filepath = expand_path(strndup(sb.items, sb.count));
+        sb_append_null(&sb);
+        char *filepath = expand_path(sb.items);
         if (is_path_allowed(filepath)) {
+            free(filepath);
+            sb.count--;
             sb_append_cstr(&sb, "/.env");
-            filepath = expand_path_file(strndup(sb.items, sb.count));
+            sb_append_null(&sb);
+            filepath = expand_path_file(sb.items);
             Variables dot_env = {0};
             if (parse_dotenv(&dot_env, filepath)) {
                 for (size_t j = 0; j < dot_env.count; ++j) {
                     da_append(unset, strndup(dot_env.items[j].key.data, dot_env.items[j].key.count));
                 }
             }
+            free_variables(&dot_env);
+            free(filepath);
+        } else {
+            free(filepath);
         }
+        free(sb.items);
     }
+    free_path_parts(old_parts, total_old_parts);
 
     // Now we run normally to set all the variables in current path
     // This may be unnecessary because it will be run before the next command too
-    return run(unset);
+    int ret = run(unset);
+    for (size_t i = 0; i < unset->count; i++) free(unset->items[i]);
+    free(unset->items);
+    free(unset);
+    return ret;
 }
 
 extern const char _binary_hook_zsh_start[];
@@ -155,30 +196,41 @@ int main(const int argc, const char **argv) {
     parse_config();
 
     if (params->text == nullptr && (params->action == ALLOW || params->action == DENY)) {
-        const char *pwd = get_pwd();
+        char *pwd = get_pwd();
         NOB_ASSERT(pwd != nullptr && "Could not get current working directory.");
         params->text = expand_path(pwd);
+        free(pwd);
     }
 
+    int ret;
     switch (params->action) {
         case ALLOW:
-            return allow_path(params->text);
+            ret = allow_path(params->text);
+            break;
         case DENY:
-            return deny_path(params->text);
+            ret = deny_path(params->text);
+            break;
         case LIST:
-            return list_paths();
+            ret = list_paths();
+            break;
         case RUN:
-            return run(nullptr);
+            ret = run(nullptr);
+            break;
         case CHPWD:
-            return chpwd(params->text);
-        case HOOK:
-            return hook(expand_path_file(argv[0]), params->text);
+            ret = chpwd(params->text);
+            break;
+        case HOOK: {
+            char *bin = expand_path_file(argv[0]);
+            ret = hook(bin, params->text);
+            free(bin);
+            break;
+        }
         case HELP:
         default:
-
-
-
+            UNREACHABLE("This should not happen...");
     }
 
-    UNREACHABLE("This should not happen...");
+    free(params->text);
+    free(params);
+    return ret;
 }
